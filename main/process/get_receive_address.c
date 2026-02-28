@@ -141,6 +141,12 @@ void get_receive_address_process(void* process_ptr)
             goto cleanup;
         }
 
+        if (is_greenaddress(script_variant) && network_is_litecoin(network_id)) {
+            jade_process_reject_message(
+                process, CBOR_RPC_BAD_PARAMETERS, "Green multisig is not supported on Litecoin networks");
+            goto cleanup;
+        }
+
         if (is_greenaddress(script_variant)) {
             // For green-multisig the path is constructed from subaccount, branch and pointer
             size_t subaccount = 0, branch = 0, pointer = 0;

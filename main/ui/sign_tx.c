@@ -13,6 +13,7 @@
 #include "../ui/sign_tx.h"
 #include "../utils/address.h"
 #include "../utils/event.h"
+#include "../utils/network.h"
 #include "../utils/util.h"
 
 // from confirm_address
@@ -29,6 +30,12 @@ static const char BLINDED_OUTPUT[] = "Cannot unblind output";
 static const char VERIFIED_WALLET_OUTPUT_MSG[] = "Verified wallet output";
 
 static const char TICKER_BTC[] = "BTC";
+static const char TICKER_LTC[] = "LTC";
+
+static const char* network_ticker(const network_t network_id)
+{
+    return network_is_litecoin(network_id) ? TICKER_LTC : TICKER_BTC;
+}
 
 // Don't display pre-validated (eg. change) outputs (if provided) unless they have an associated warning message.
 // Should work for elements and standard btc, but liquid hides scriptless outputs (fees)
@@ -451,7 +458,7 @@ bool show_btc_transaction_outputs_activity(
         // Show output info
         const char* msg = (output_info && strlen(output_info[i].message) > 0) ? output_info[i].message : NULL;
         if (!show_input_output_activity(
-                title, is_wallet_output, is_address, address, amount, TICKER_BTC, NULL, NULL, msg)) {
+                title, is_wallet_output, is_address, address, amount, network_ticker(network_id), NULL, NULL, msg)) {
             // User pressed 'cancel'
             return false;
         }
@@ -748,7 +755,7 @@ bool show_btc_final_confirmation_activity(const network_t network_id, const uint
     const int ret = snprintf(feeamount, sizeof(feeamount), "%.08f", 1.0 * fee / 1e8);
     JADE_ASSERT(ret > 0 && ret < sizeof(feeamount));
 
-    return show_final_confirmation_activity("Send Transaction", feeamount, TICKER_BTC, warning_msg);
+    return show_final_confirmation_activity("Send Transaction", feeamount, network_ticker(network_id), warning_msg);
 }
 
 bool show_elements_final_confirmation_activity(

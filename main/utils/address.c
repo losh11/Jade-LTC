@@ -11,6 +11,7 @@
 #include <string.h>
 
 static const char BITCOIN_ADDRESS_URI_SCHEME[] = "bitcoin";
+static const char LITECOIN_ADDRESS_URI_SCHEME[] = "litecoin";
 
 static void base58_addr(const uint8_t prefix, const uint8_t* script, char** output)
 {
@@ -195,19 +196,32 @@ void elements_script_to_address(const network_t network_id, const uint8_t* scrip
     }
 }
 
+// URI scheme hint for network filtering
+typedef enum { URI_SCHEME_NONE, URI_SCHEME_BITCOIN, URI_SCHEME_LITECOIN } uri_scheme_t;
+
 // Convert potential uri form into raw base58 address string
-static bool address_from_uri(const char* address, address_data_t* addr_data)
+// Sets *scheme to indicate which URI scheme was used (or NONE if no scheme prefix)
+static bool address_from_uri(const char* address, address_data_t* addr_data, uri_scheme_t* scheme)
 {
     JADE_ASSERT(address);
     JADE_ASSERT(addr_data);
+    JADE_ASSERT(scheme);
+
+    *scheme = URI_SCHEME_NONE;
 
     // Look for ':' and uri scheme
     const char* start = strchr(address, ':');
     const char* end = NULL;
     if (start) {
-        // Check URI scheme
-        if (start - address != sizeof(BITCOIN_ADDRESS_URI_SCHEME) - 1
-            || strncasecmp(address, BITCOIN_ADDRESS_URI_SCHEME, sizeof(BITCOIN_ADDRESS_URI_SCHEME) - 1)) {
+        // Check URI scheme - accept "bitcoin:" or "litecoin:"
+        const size_t scheme_len = start - address;
+        if (scheme_len == sizeof(BITCOIN_ADDRESS_URI_SCHEME) - 1
+            && strncasecmp(address, BITCOIN_ADDRESS_URI_SCHEME, scheme_len) == 0) {
+            *scheme = URI_SCHEME_BITCOIN;
+        } else if (scheme_len == sizeof(LITECOIN_ADDRESS_URI_SCHEME) - 1
+            && strncasecmp(address, LITECOIN_ADDRESS_URI_SCHEME, scheme_len) == 0) {
+            *scheme = URI_SCHEME_LITECOIN;
+        } else {
             // Bad URI scheme
             return false;
         }
@@ -241,8 +255,8 @@ static bool try_parse_address(const network_t network_id, address_data_t* addr_d
     bool is_segwit = false;
 
     // 1. Try non- (or wrapped-) segwit.
-    // Don't bother trying Bitcoin regtest since it shares a prefix with testnet
-    if (network_id != NETWORK_BITCOIN_REGTEST) {
+    // Don't bother trying regtest networks that share base58 prefixes with testnet
+    if (network_id != NETWORK_BITCOIN_REGTEST && network_id != NETWORK_LITECOIN_REGTEST) {
         wret = wally_address_to_scriptpubkey(
             addr_data->address, network_id, addr_data->script, sizeof(addr_data->script), &addr_data->script_len);
     }
@@ -266,8 +280,8 @@ static bool try_parse_address(const network_t network_id, address_data_t* addr_d
     return false;
 }
 
-// Try to parse a BTC address and extract the scriptpubkey or witness program
-// NOTE: elements is not supported atm
+// Try to parse an address and extract the scriptpubkey or witness program.
+// Supports Bitcoin and Litecoin networks. Elements/Liquid is not supported.
 bool parse_address(const char* address, address_data_t* addr_data)
 {
     JADE_ASSERT(address);
@@ -278,14 +292,24 @@ bool parse_address(const char* address, address_data_t* addr_data)
     addr_data->script_len = 0;
 
     // Convert potential uri form into raw base58 address string
-    if (!address_from_uri(address, addr_data)) {
+    uri_scheme_t scheme = URI_SCHEME_NONE;
+    if (!address_from_uri(address, addr_data, &scheme)) {
         // Bad address uri format
         return false;
     }
 
-    // Try to parse the passed address for mainnet, testnet and localtest/regtest
-    if (try_parse_address(NETWORK_BITCOIN, addr_data) || try_parse_address(NETWORK_BITCOIN_TESTNET, addr_data)
-        || try_parse_address(NETWORK_BITCOIN_REGTEST, addr_data)) {
+    // Try to parse the passed address for matching networks.
+    // If a URI scheme was specified, only try networks matching that scheme.
+    // Otherwise try all Bitcoin and Litecoin networks.
+    const bool try_btc = scheme != URI_SCHEME_LITECOIN;
+    const bool try_ltc = scheme != URI_SCHEME_BITCOIN;
+    if ((try_btc
+            && (try_parse_address(NETWORK_BITCOIN, addr_data) || try_parse_address(NETWORK_BITCOIN_TESTNET, addr_data)
+                || try_parse_address(NETWORK_BITCOIN_REGTEST, addr_data)))
+        || (try_ltc
+            && (try_parse_address(NETWORK_LITECOIN, addr_data)
+                || try_parse_address(NETWORK_LITECOIN_TESTNET, addr_data)
+                || try_parse_address(NETWORK_LITECOIN_REGTEST, addr_data)))) {
         // Script parsed
         const size_t len = strnlen(addr_data->address, sizeof(addr_data->address));
         JADE_ASSERT(len > 0 && len < sizeof(addr_data->address));

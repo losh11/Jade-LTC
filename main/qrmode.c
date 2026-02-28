@@ -472,23 +472,20 @@ static bool load_registered_wallet(const size_t script_type, char* name_out, con
 }
 
 // Get search root for singlesig address
-static void get_singlesig_search_root(const script_variant_t variant, const uint16_t account_index,
-    const bool is_change, char* pathstr, const size_t pathstr_len, struct ext_key* search_roots,
-    const size_t search_roots_len)
+static void get_singlesig_search_root(const network_t network_id, const script_variant_t variant,
+    const uint16_t account_index, const bool is_change, char* pathstr, const size_t pathstr_len,
+    struct ext_key* search_roots, const size_t search_roots_len)
 {
     JADE_ASSERT(pathstr);
     JADE_ASSERT(pathstr_len);
     JADE_ASSERT(search_roots);
     JADE_ASSERT(search_roots_len == 1);
 
-    // Get the path to search
+    // Get the path to search using the detected network for correct coin type
     size_t path_len = 0;
     uint32_t path[EXPORT_XPUB_PATH_LEN];
-    // QR scan matching defaults to Bitcoin coin type
-    const network_t export_network
-        = keychain_get_network_type_restriction() == NETWORK_TYPE_TEST ? NETWORK_BITCOIN_TESTNET : NETWORK_BITCOIN;
     wallet_get_default_xpub_export_path(
-        export_network, variant, account_index, path, EXPORT_XPUB_PATH_LEN, &path_len);
+        network_id, variant, account_index, path, EXPORT_XPUB_PATH_LEN, &path_len);
     JADE_ASSERT(path_len == EXPORT_XPUB_PATH_LEN - 1);
     path[path_len++] = is_change ? 1 : 0; // set change indicator
 
@@ -704,7 +701,7 @@ static bool verify_address(const address_data_t* const addr_data)
         search_roots_len = 1;
         search_roots = JADE_CALLOC(search_roots_len, sizeof(struct ext_key));
         get_singlesig_search_root(
-            variant, account_index, is_change, label, sizeof(label), search_roots, search_roots_len);
+            addr_data->network_id, variant, account_index, is_change, label, sizeof(label), search_roots, search_roots_len);
     }
 
     // Create the main search progress screen
@@ -804,8 +801,8 @@ static bool verify_address(const address_data_t* const addr_data)
                             get_descriptor_search_roots(
                                 descriptor, is_change, label, sizeof(label), search_roots, search_roots_len);
                         } else {
-                            get_singlesig_search_root(variant, account_index, is_change, label, sizeof(label),
-                                search_roots, search_roots_len);
+                            get_singlesig_search_root(addr_data->network_id, variant, account_index, is_change,
+                                label, sizeof(label), search_roots, search_roots_len);
                         }
                         gui_update_text(label_text, label);
 

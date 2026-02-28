@@ -224,6 +224,11 @@ static bool params_signing_outputs(jade_process_t* process, const CborValue* par
                     goto cleanup;
                 }
 
+                if (is_greenaddress(script_variant) && network_is_litecoin(network_id)) {
+                    errmsg = "Green multisig is not supported on Litecoin networks";
+                    goto cleanup;
+                }
+
                 if (is_greenaddress(script_variant)) {
                     // Optional recovery xpub for 2of3 accounts
                     written = 0;
