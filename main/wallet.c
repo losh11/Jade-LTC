@@ -362,6 +362,9 @@ bool wallet_derive_from_xpub(
     return ret;
 }
 
+// Forward declaration of get_bip44_coin_type
+static uint32_t get_bip44_coin_type(const network_t network_id);
+
 // Function to get the path used when we are asked to export an xpub
 void wallet_get_default_xpub_export_path(const network_t network_id,
     const script_variant_t variant, const uint16_t account, uint32_t* path, const size_t path_len, size_t* written)
