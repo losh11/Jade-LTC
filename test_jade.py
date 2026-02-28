@@ -463,7 +463,24 @@ MarKPtCixrX'),
 QGEQu1tqez'),
                  ([2147483692, 0, 1, 2], 'testnet-liquid', 'tpubDFHUCdwiKzeyST\
 BkMyPec9y9VSwwVgn1AftmefpKLYTPrChSCTbHAnbXtSQTB8qEvR8H6nt3sBwNAUeYZK5oc75dWDiY\
-WBrYcMRYW2DGU1Z')]
+WBrYcMRYW2DGU1Z'),
+                 # Litecoin xpubs (coin type 2, standard Bitcoin BIP32 versions)
+                 ([2147483732, 2147483650, 2147483648], 'litecoin',
+                  'xpub6DX8r2V6zPd19x66eKnvXDnLyUpSL8ACnrw5N1TR3GpiiwWzGNLiWXVx\
+7jTcdHXCrHc3LDWfquoLVSfJMv4eCHApx4TLfnDEozaHdUYrYoZ'),
+                 ([2147483692, 2147483650, 2147483648], 'litecoin',
+                  'xpub6CnBj358BKXZzoX4Q2qA8V2Hi58CKh8xkH6PP7PrAvcbRR48QCbSSt5R\
+9pU1ULxfp2Uxywa9mDP7U7dhtSM5h9mXV8mhrSzBuYFCFUTwXc5'),
+                 ([2147483697, 2147483650, 2147483648], 'litecoin',
+                  'xpub6Cza8usn4BvkEdL9cj2EyacuWu8Y77qAiM2sXeZ78sn89dXUJyTbb98F\
+s1723m3u3deTTVProfBF1FAujTKncJkDNwvwRpm6CATGdmnsrY9'),
+                 # Litecoin testnet xpubs (coin type 1, testnet BIP32 versions)
+                 ([2147483732, 2147483649, 2147483648], 'testnet-litecoin',
+                  'tpubDCj4DJ2igAAqESrnm5kkbpmjsn1RhB4BGLmDYbGRDJzX9BJad1rnBEDy\
+Lt5id1RmxNAm1Hy3id3yVsUznPDoRjFXDbg3ParcXhS4rVmSvss'),
+                 ([2147483732, 2147483649, 2147483648], 'localtest-litecoin',
+                  'tpubDCj4DJ2igAAqESrnm5kkbpmjsn1RhB4BGLmDYbGRDJzX9BJad1rnBEDy\
+Lt5id1RmxNAm1Hy3id3yVsUznPDoRjFXDbg3ParcXhS4rVmSvss')]
 
 GET_GREENADDRESS_DATA = [('localtest', 0, 1, 345, None, 0, None,
                           '2MyMy6Ey7a5dmWJW1D9M7RFwjmXD1ECrgy4'),
@@ -559,7 +576,40 @@ YzNnQaWx24j5hX8iWcaZgTZJ6Y3sedLi'),
 YzNnQaWx24j5hX8iWcaZgTZJ6Y3sedLi'),
                             ('localtest-liquid', 'pkh(k)', False,
                              [2147483648, 2147483648, 2147483657],
-                             '2dafKNiCKbRum9S1u5BYqTByZT5R9zSqcWy')]
+                             '2dafKNiCKbRum9S1u5BYqTByZT5R9zSqcWy'),
+
+                            # Litecoin mainnet (coin type 2)
+                            ('litecoin', 'sh(wpkh(k))', None,
+                             [2147483697, 2147483650, 2147483648, 0, 0],
+                             'ME5QLPNXsZ4TpMMPnC8iWx4cmUc5ad7Qnp'),
+                            ('litecoin', 'wpkh(k)', None,
+                             [2147483732, 2147483650, 2147483648, 0, 0],
+                             'ltc1qevzsptr5g84rgdq5ns0j9r59c8jqy5mux824w4'),
+                            ('litecoin', 'pkh(k)', None,
+                             [2147483692, 2147483650, 2147483648, 0, 0],
+                             'Lew5sMN6AduTSqSjdyUxoSZi1jusKaXgqT'),
+
+                            # Litecoin testnet (coin type 1)
+                            ('testnet-litecoin', 'sh(wpkh(k))', None,
+                             [2147483697, 2147483649, 2147483648, 0, 0],
+                             'QLcZGxvzaTYzuq9vxfxkmqjDHYaxX3p8uo'),
+                            ('testnet-litecoin', 'wpkh(k)', None,
+                             [2147483732, 2147483649, 2147483648, 0, 0],
+                             'tltc1q9t9pgtdsyf6r8ks7gnxvj99sea4d3nmjx8fdj4'),
+                            ('testnet-litecoin', 'pkh(k)', None,
+                             [2147483692, 2147483649, 2147483648, 0, 0],
+                             'n14ZHegDebEj3kEFgpUbr2fuhcFbDoBVH1'),
+
+                            # Litecoin localtest/regtest (coin type 1, rltc HRP)
+                            ('localtest-litecoin', 'sh(wpkh(k))', None,
+                             [2147483697, 2147483649, 2147483648, 0, 0],
+                             'QLcZGxvzaTYzuq9vxfxkmqjDHYaxX3p8uo'),
+                            ('localtest-litecoin', 'wpkh(k)', None,
+                             [2147483732, 2147483649, 2147483648, 0, 0],
+                             'rltc1q9t9pgtdsyf6r8ks7gnxvj99sea4d3nmjrtghzt'),
+                            ('localtest-litecoin', 'pkh(k)', None,
+                             [2147483692, 2147483649, 2147483648, 0, 0],
+                             'n14ZHegDebEj3kEFgpUbr2fuhcFbDoBVH1')]
 
 # Hold test data in separate files as can be large
 QR_QVGA_SCAN_TESTS = 'qr_qvga_*.json'
@@ -581,6 +631,9 @@ SIGN_LIQUID_TXN_SS_TESTS = 'tx_liquid_ss*.json'
 SIGN_PSBT_TESTS = 'psbt_tm_*.json'
 SIGN_PSET_TESTS = 'pset_tm_*.json'
 SIGN_PSBT_SS_TESTS = 'psbt_ss_*.json'
+SIGN_LTC_TXN_TESTS = 'ltc_txn_*.json'
+SIGN_LTC_TXN_FAIL_CASES = 'ltc_badtxn_*.json'
+SIGN_LTC_PSBT_SS_TESTS = 'ltc_psbt_ss_*.json'
 SIGN_PSET_SS_TESTS = 'pset_ss_*.json'
 
 TEST_SCRIPT = h2b('76a9145f4fcd4a757c2abf6a0691f59dffae18852bbd7388ac')
@@ -3784,6 +3837,10 @@ def run_api_tests(jadeapi, isble, qemu, authuser=False):
     test_sign_psbt(jadeapi, SIGN_PSBT_TESTS, has_psram)
     test_sign_psbt(jadeapi, SIGN_PSET_TESTS, has_psram)
 
+    # Test Litecoin transactions and PSBTs
+    test_sign_tx(jadeapi, SIGN_LTC_TXN_TESTS, has_psram)
+    test_sign_tx(jadeapi, SIGN_LTC_TXN_FAIL_CASES, has_psram)
+
     # Short sanity-test of 12-word mnemonic
     test_12word_mnemonic(jadeapi)
 
@@ -3819,6 +3876,8 @@ def run_api_tests(jadeapi, isble, qemu, authuser=False):
     test_sign_psbt(jadeapi, SIGN_PSBT_SS_TESTS, has_psram)
     # Singlesig Liquid (PSET) tests
     test_sign_psbt(jadeapi, SIGN_PSET_SS_TESTS, has_psram)
+    # Singlesig Litecoin PSBT tests
+    test_sign_psbt(jadeapi, SIGN_LTC_PSBT_SS_TESTS, has_psram)
 
     # Sign identity (ssh & gpg) tests require a specific mnemonic
     rslt = jadeapi.set_mnemonic(TEST_MNEMONIC_12_IDENTITY)
