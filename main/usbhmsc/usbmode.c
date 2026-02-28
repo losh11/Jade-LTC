@@ -999,11 +999,15 @@ static bool export_usb_xpub_fn(const usbstorage_action_context_t* ctx)
         *p = '\0';
     }
 
+    // USB export defaults to Bitcoin coin type
+    const network_t network_id
+        = keychain_get_network_type_restriction() == NETWORK_TYPE_TEST ? NETWORK_BITCOIN_TESTNET : NETWORK_BITCOIN;
+
     // Path
     const uint16_t account_index = qr_flags >> ACCOUNT_INDEX_FLAGS_SHIFT;
     uint32_t path[EXPORT_XPUB_PATH_LEN];
     size_t path_len = 0;
-    wallet_get_default_xpub_export_path(script_variant, account_index, path, EXPORT_XPUB_PATH_LEN, &path_len);
+    wallet_get_default_xpub_export_path(network_id, script_variant, account_index, path, EXPORT_XPUB_PATH_LEN, &path_len);
     const bool path_only = true;
     const size_t remaining_len = sizeof(descriptor) - (p - descriptor);
     const bool ret = wallet_bip32_path_as_str(path, path_len, p, remaining_len, path_only);
@@ -1011,13 +1015,6 @@ static bool export_usb_xpub_fn(const usbstorage_action_context_t* ctx)
     p += strlen(p);
     *p++ = ']';
     *p = '\0';
-
-    network_t network_id;
-    if (keychain_get_network_type_restriction() == NETWORK_TYPE_TEST) {
-        network_id = NETWORK_BITCOIN_TESTNET;
-    } else {
-        network_id = NETWORK_BITCOIN;
-    }
 
     // xpub
     {

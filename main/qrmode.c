@@ -231,7 +231,11 @@ static gui_activity_t* create_display_xpub_qr_activity(const uint32_t qr_flags)
     // Deduce path based on script type and main/test network restrictions
     uint32_t path[EXPORT_XPUB_PATH_LEN]; // 3 or 4 - purpose'/cointype'/account'/[multisig bip48 script type']
     size_t path_len = 0;
-    wallet_get_default_xpub_export_path(script_variant, account_index, path, EXPORT_XPUB_PATH_LEN, &path_len);
+    // QR export defaults to Bitcoin coin type (Litecoin uses command protocol for xpub export)
+    const network_t export_network
+        = keychain_get_network_type_restriction() == NETWORK_TYPE_TEST ? NETWORK_BITCOIN_TESTNET : NETWORK_BITCOIN;
+    wallet_get_default_xpub_export_path(
+        export_network, script_variant, account_index, path, EXPORT_XPUB_PATH_LEN, &path_len);
 
     // Construct BC-UR CBOR message for 'crypto-account' or 'crypto-hdkey' bcur
     uint8_t cbor[128];
@@ -480,7 +484,11 @@ static void get_singlesig_search_root(const script_variant_t variant, const uint
     // Get the path to search
     size_t path_len = 0;
     uint32_t path[EXPORT_XPUB_PATH_LEN];
-    wallet_get_default_xpub_export_path(variant, account_index, path, EXPORT_XPUB_PATH_LEN, &path_len);
+    // QR scan matching defaults to Bitcoin coin type
+    const network_t export_network
+        = keychain_get_network_type_restriction() == NETWORK_TYPE_TEST ? NETWORK_BITCOIN_TESTNET : NETWORK_BITCOIN;
+    wallet_get_default_xpub_export_path(
+        export_network, variant, account_index, path, EXPORT_XPUB_PATH_LEN, &path_len);
     JADE_ASSERT(path_len == EXPORT_XPUB_PATH_LEN - 1);
     path[path_len++] = is_change ? 1 : 0; // set change indicator
 

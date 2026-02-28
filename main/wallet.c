@@ -39,6 +39,7 @@ static const uint32_t MAX_PATH_PTR = 10000;
 
 static const uint32_t BIP44_COIN_BTC = BIP32_INITIAL_HARDENED_CHILD;
 static const uint32_t BIP44_COIN_TEST = BIP32_INITIAL_HARDENED_CHILD + 1;
+static const uint32_t BIP44_COIN_LTC = BIP32_INITIAL_HARDENED_CHILD + 2;
 static const uint32_t BIP44_COIN_LBTC = BIP32_INITIAL_HARDENED_CHILD + 1776;
 static const uint32_t BIP44_PURPOSE = BIP32_INITIAL_HARDENED_CHILD + 44;
 static const uint32_t BIP45_PURPOSE = BIP32_INITIAL_HARDENED_CHILD + 45;
@@ -100,6 +101,10 @@ static struct ext_key* network_to_ga_service(const network_t network_id)
         return &TESTNET_SERVICE;
     case NETWORK_LIQUID_TESTNET:
         return &TESTNETLIQUID_SERVICE;
+    case NETWORK_LITECOIN:
+    case NETWORK_LITECOIN_TESTNET:
+    case NETWORK_LITECOIN_REGTEST:
+        return NULL; // Litecoin does not use GreenAddress
     case NETWORK_NONE:
         break;
     }
@@ -358,7 +363,7 @@ bool wallet_derive_from_xpub(
 }
 
 // Function to get the path used when we are asked to export an xpub
-void wallet_get_default_xpub_export_path(
+void wallet_get_default_xpub_export_path(const network_t network_id,
     const script_variant_t variant, const uint16_t account, uint32_t* path, const size_t path_len, size_t* written)
 {
     JADE_ASSERT(!is_greenaddress(variant));
@@ -376,8 +381,7 @@ void wallet_get_default_xpub_export_path(
     }
 
     // 'Coin-type' depends on network
-    // FIXME: Handle liquid
-    path[1] = keychain_get_network_type_restriction() == NETWORK_TYPE_TEST ? BIP44_COIN_TEST : BIP44_COIN_BTC;
+    path[1] = get_bip44_coin_type(network_id);
 
     // 'Account' is as passed in
     path[2] = harden(account);
@@ -416,12 +420,16 @@ static uint32_t get_bip44_coin_type(const network_t network_id)
     switch (network_id) {
     case NETWORK_BITCOIN:
         return BIP44_COIN_BTC;
+    case NETWORK_LITECOIN:
+        return BIP44_COIN_LTC;
     case NETWORK_LIQUID:
         return BIP44_COIN_LBTC;
     case NETWORK_BITCOIN_TESTNET:
     case NETWORK_LIQUID_TESTNET:
     case NETWORK_BITCOIN_REGTEST:
     case NETWORK_LIQUID_REGTEST:
+    case NETWORK_LITECOIN_TESTNET:
+    case NETWORK_LITECOIN_REGTEST:
         return BIP44_COIN_TEST;
     case NETWORK_NONE:
         break;
