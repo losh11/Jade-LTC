@@ -13,18 +13,24 @@
 // Main networks
 #define TAG_MAINNET "mainnet"
 #define TAG_LIQUID "liquid"
+#define TAG_LITECOIN "litecoin"
 
 // Test networks
 #define TAG_TESTNET "testnet"
 #define TAG_TESTNETLIQUID "testnet-liquid"
 #define TAG_LOCALTEST "localtest"
 #define TAG_LOCALTESTLIQUID "localtest-liquid"
+#define TAG_TESTNETLITECOIN "testnet-litecoin"
+#define TAG_LOCALTESTLITECOIN "localtest-litecoin"
 
 // Green CSV buckets allowed
 static const size_t ALLOWED_CSV_MAINNET[] = { 25920, 51840, 65535 };
 static const size_t ALLOWED_CSV_TESTNET[] = { 144, 4320, 51840 };
 static const size_t ALLOWED_CSV_LIQUID[] = { 65535 };
 static const size_t ALLOWED_CSV_TESTNET_LIQUID[] = { 1440, 65535 };
+// Litecoin has 2.5 min blocks (4x faster than Bitcoin)
+static const size_t ALLOWED_CSV_LITECOIN[] = { 65535 };
+static const size_t ALLOWED_CSV_TESTNET_LITECOIN[] = { 576, 17280, 65535 };
 
 // Genesis blockhashes for Liquid chains.
 // Note these are binary format, not display format which is reversed
@@ -43,6 +49,14 @@ bool network_is_liquid(const network_t network_id)
 {
     JADE_ASSERT(network_id != NETWORK_NONE);
     return network_id == NETWORK_LIQUID || network_id == NETWORK_LIQUID_TESTNET || network_id == NETWORK_LIQUID_REGTEST;
+}
+
+// True for litecoin and litecoin regtest/testnet networks
+bool network_is_litecoin(const network_t network_id)
+{
+    JADE_ASSERT(network_id != NETWORK_NONE);
+    return network_id == NETWORK_LITECOIN || network_id == NETWORK_LITECOIN_TESTNET
+        || network_id == NETWORK_LITECOIN_REGTEST;
 }
 
 // return the allowed csv_blocks values for a network
@@ -65,6 +79,13 @@ static size_t network_to_csv_blocks(const network_t network_id, const size_t** a
     case NETWORK_LIQUID_REGTEST:
         *allowed = ALLOWED_CSV_TESTNET_LIQUID;
         return sizeof(ALLOWED_CSV_TESTNET_LIQUID) / sizeof(ALLOWED_CSV_TESTNET_LIQUID[0]);
+    case NETWORK_LITECOIN:
+        *allowed = ALLOWED_CSV_LITECOIN;
+        return sizeof(ALLOWED_CSV_LITECOIN) / sizeof(ALLOWED_CSV_LITECOIN[0]);
+    case NETWORK_LITECOIN_TESTNET:
+    case NETWORK_LITECOIN_REGTEST:
+        *allowed = ALLOWED_CSV_TESTNET_LITECOIN;
+        return sizeof(ALLOWED_CSV_TESTNET_LITECOIN) / sizeof(ALLOWED_CSV_TESTNET_LITECOIN[0]);
     case NETWORK_NONE:
         break;
     }
@@ -109,20 +130,29 @@ network_t network_from_name(const char* name)
     JADE_STATIC_ASSERT(NETWORK_LIQUID == WALLY_NETWORK_LIQUID);
     JADE_STATIC_ASSERT(NETWORK_LIQUID_REGTEST == WALLY_NETWORK_LIQUID_REGTEST);
     JADE_STATIC_ASSERT(NETWORK_LIQUID_TESTNET == WALLY_NETWORK_LIQUID_TESTNET);
+    JADE_STATIC_ASSERT(NETWORK_LITECOIN == WALLY_NETWORK_LITECOIN);
+    JADE_STATIC_ASSERT(NETWORK_LITECOIN_TESTNET == WALLY_NETWORK_LITECOIN_TESTNET);
+    JADE_STATIC_ASSERT(NETWORK_LITECOIN_REGTEST == WALLY_NETWORK_LITECOIN_REGTEST);
 
     if (name) {
         if (!strcmp(TAG_MAINNET, name)) {
             return NETWORK_BITCOIN;
         } else if (!strcmp(TAG_LIQUID, name)) {
             return NETWORK_LIQUID;
+        } else if (!strcmp(TAG_LITECOIN, name)) {
+            return NETWORK_LITECOIN;
         } else if (!strcmp(TAG_TESTNET, name)) {
             return NETWORK_BITCOIN_TESTNET;
         } else if (!strcmp(TAG_TESTNETLIQUID, name)) {
             return NETWORK_LIQUID_TESTNET;
+        } else if (!strcmp(TAG_TESTNETLITECOIN, name)) {
+            return NETWORK_LITECOIN_TESTNET;
         } else if (!strcmp(TAG_LOCALTEST, name)) {
             return NETWORK_BITCOIN_REGTEST;
         } else if (!strcmp(TAG_LOCALTESTLIQUID, name)) {
             return NETWORK_LIQUID_REGTEST;
+        } else if (!strcmp(TAG_LOCALTESTLITECOIN, name)) {
+            return NETWORK_LITECOIN_REGTEST;
         }
     }
     return NETWORK_NONE;
@@ -135,14 +165,20 @@ const char* network_to_name(const network_t network_id)
         return TAG_MAINNET;
     case NETWORK_LIQUID:
         return TAG_LIQUID;
+    case NETWORK_LITECOIN:
+        return TAG_LITECOIN;
     case NETWORK_BITCOIN_TESTNET:
         return TAG_TESTNET;
     case NETWORK_LIQUID_TESTNET:
         return TAG_TESTNETLIQUID;
+    case NETWORK_LITECOIN_TESTNET:
+        return TAG_TESTNETLITECOIN;
     case NETWORK_BITCOIN_REGTEST:
         return TAG_LOCALTEST;
     case NETWORK_LIQUID_REGTEST:
         return TAG_LOCALTESTLIQUID;
+    case NETWORK_LITECOIN_REGTEST:
+        return TAG_LOCALTESTLITECOIN;
     case NETWORK_NONE:
         break;
     }
@@ -156,11 +192,14 @@ network_type_t network_to_type(const network_t network_id)
     switch (network_id) {
     case NETWORK_BITCOIN:
     case NETWORK_LIQUID:
+    case NETWORK_LITECOIN:
         return NETWORK_TYPE_MAIN;
     case NETWORK_BITCOIN_TESTNET:
     case NETWORK_LIQUID_TESTNET:
+    case NETWORK_LITECOIN_TESTNET:
     case NETWORK_BITCOIN_REGTEST:
     case NETWORK_LIQUID_REGTEST:
+    case NETWORK_LITECOIN_REGTEST:
         return NETWORK_TYPE_TEST;
     case NETWORK_NONE:
         break;
@@ -183,10 +222,14 @@ uint8_t network_to_p2pkh_prefix(const network_t network_id)
     switch (network_id) {
     case NETWORK_BITCOIN:
         return WALLY_ADDRESS_VERSION_P2PKH_MAINNET;
+    case NETWORK_LITECOIN:
+        return WALLY_ADDRESS_VERSION_P2PKH_LITECOIN;
     case NETWORK_LIQUID:
         return WALLY_ADDRESS_VERSION_P2PKH_LIQUID;
     case NETWORK_BITCOIN_TESTNET:
     case NETWORK_BITCOIN_REGTEST:
+    case NETWORK_LITECOIN_TESTNET:
+    case NETWORK_LITECOIN_REGTEST:
         return WALLY_ADDRESS_VERSION_P2PKH_TESTNET;
     case NETWORK_LIQUID_TESTNET:
         return WALLY_ADDRESS_VERSION_P2PKH_LIQUID_TESTNET;
@@ -205,11 +248,16 @@ uint8_t network_to_p2sh_prefix(const network_t network_id)
     switch (network_id) {
     case NETWORK_BITCOIN:
         return WALLY_ADDRESS_VERSION_P2SH_MAINNET;
+    case NETWORK_LITECOIN:
+        return WALLY_ADDRESS_VERSION_P2SH_LITECOIN;
     case NETWORK_LIQUID:
         return WALLY_ADDRESS_VERSION_P2SH_LIQUID;
     case NETWORK_BITCOIN_TESTNET:
     case NETWORK_BITCOIN_REGTEST:
         return WALLY_ADDRESS_VERSION_P2SH_TESTNET;
+    case NETWORK_LITECOIN_TESTNET:
+    case NETWORK_LITECOIN_REGTEST:
+        return WALLY_ADDRESS_VERSION_P2SH_LITECOIN_TESTNET;
     case NETWORK_LIQUID_TESTNET:
         return WALLY_ADDRESS_VERSION_P2SH_LIQUID_TESTNET;
     case NETWORK_LIQUID_REGTEST:
@@ -227,12 +275,18 @@ const char* network_to_bech32_prefix(const network_t network_id)
     switch (network_id) {
     case NETWORK_BITCOIN:
         return "bc";
+    case NETWORK_LITECOIN:
+        return "ltc";
     case NETWORK_LIQUID:
         return "ex";
     case NETWORK_BITCOIN_TESTNET:
         return "tb";
+    case NETWORK_LITECOIN_TESTNET:
+        return "tltc";
     case NETWORK_BITCOIN_REGTEST:
         return "bcrt";
+    case NETWORK_LITECOIN_REGTEST:
+        return "rltc";
     case NETWORK_LIQUID_TESTNET:
         return "tex";
     case NETWORK_LIQUID_REGTEST:

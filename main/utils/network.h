@@ -16,13 +16,17 @@ typedef enum {
     NETWORK_BITCOIN_TESTNET = 0x02,
     NETWORK_LIQUID = 0x03,
     NETWORK_LIQUID_REGTEST = 0x04,
-    NETWORK_LIQUID_TESTNET = 0x05
+    NETWORK_LIQUID_TESTNET = 0x05,
+    NETWORK_LITECOIN = 0x06,
+    NETWORK_LITECOIN_TESTNET = 0x07,
+    NETWORK_LITECOIN_REGTEST = 0x08
 } network_t;
 
 // Network type: Mainnet or Testnet
 typedef enum { NETWORK_TYPE_NONE, NETWORK_TYPE_MAIN, NETWORK_TYPE_TEST } network_type_t;
 
 bool network_is_liquid(network_t network_id);
+bool network_is_litecoin(network_t network_id);
 
 bool network_is_known_csv_blocks(network_t network_id, uint32_t csv_blocks);
 bool network_is_allowable_csv_blocks(network_t network_id, uint32_t csv_blocks);
