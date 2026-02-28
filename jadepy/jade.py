@@ -854,7 +854,8 @@ class JadeAPI:
         Parameters
         ----------
         network : str
-            The name of the network intended for use - eg. 'mainnet', 'liquid', 'testnet' etc.
+            The name of the network intended for use - eg. 'mainnet', 'liquid', 'testnet',
+            'litecoin', 'testnet-litecoin', 'localtest-litecoin', etc.
             This is verified against the networks allowed on the hardware.
 
         http_request_fn : function, optional
@@ -929,7 +930,7 @@ class JadeAPI:
         Parameters
         ----------
         network : str
-            Network to which the xpub applies - eg. 'mainnet', 'liquid', 'testnet', etc.
+            Network to which the xpub applies - eg. 'mainnet', 'liquid', 'testnet', 'litecoin', etc.
 
         path : [int]
             bip32 path for which the xpub should be generated.
@@ -1017,7 +1018,7 @@ class JadeAPI:
         Parameters
         ----------
         network : string
-            Network to which the multisig should apply - eg. 'mainnet', 'liquid', 'testnet', etc.
+            Network to which the multisig should apply - eg. 'mainnet', 'liquid', 'testnet', 'litecoin', etc.
 
         multisig_name : string
             Name to use to identify this multisig wallet registration record.
@@ -1129,7 +1130,7 @@ class JadeAPI:
         Parameters
         ----------
         network : string
-            Network to which the descriptor should apply - eg. 'mainnet', 'liquid', 'testnet', etc.
+            Network to which the descriptor should apply - eg. 'mainnet', 'liquid', 'testnet', 'litecoin', etc.
 
         descriptor_name : string
             Name to use to identify this descriptor wallet registration record.
@@ -1154,7 +1155,7 @@ class JadeAPI:
         Parameters
         ----------
         network: str
-            Network to which the address should apply - eg. 'mainnet', 'liquid', 'testnet', etc.
+            Network to which the address should apply - eg. 'mainnet', 'liquid', 'testnet', 'litecoin', etc.
 
         Then either:
 
@@ -1773,7 +1774,7 @@ class JadeAPI:
         Parameters
         ----------
         network : str
-            Network to which the txn should apply - eg. 'liquid', 'liquid-testnet', etc.
+            Network to which the txn should apply - eg. 'liquid', 'testnet-liquid', etc.
 
         txn : bytes
             The transaction to sign
@@ -1900,7 +1901,7 @@ class JadeAPI:
         Parameters
         ----------
         network : str
-            Network to which the txn should apply - eg. 'mainnet', 'testnet', etc.
+            Network to which the txn should apply - eg. 'mainnet', 'testnet', 'litecoin', etc.
 
         txn : bytes
             The transaction to sign
@@ -1984,7 +1985,7 @@ class JadeAPI:
         Parameters
         ----------
         network : str
-            Network to which the txn should apply - eg. 'mainnet', 'testnet', etc.
+            Network to which the txn should apply - eg. 'mainnet', 'testnet', 'litecoin', etc.
 
         psbt : bytes
             The psbt formatted as bytes
