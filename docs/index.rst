@@ -16,7 +16,7 @@ Welcome to Jade's RPC documentation!
 * In some cases there may be a delay between sending a message and a reply being sent, where some physical interaction with the Jade unit is required.
 * In general, the types used are string, boolean, uint32/64, and raw byte-strings for binary data.
 * Every message contains an `id` field - an arbitrary string up to 16 characters - which is included in the reply.
-* Several calls require a `network` parameter.  Allowed values are: 'mainnet' and 'liquid'. If using a test wallet, 'testnet', 'testnet-liquid', 'localtest' and 'localtest-liquid' are allowed.
+* Several calls require a `network` parameter.  Allowed values are: 'mainnet', 'liquid', and 'litecoin'. If using a test wallet, 'testnet', 'testnet-liquid', 'testnet-litecoin', 'localtest', 'localtest-liquid', and 'localtest-litecoin' are allowed.
 * Successful action replies include a `result` structure, specific to each method.
 * Failed/errored/declined actions instead include a common `error` structure.
   
