@@ -1,0 +1,23 @@
+{
+  "description": "Litecoin rejects Green multisig variant on change output - Green is not supported on Litecoin",
+  "input": {
+    "network": "litecoin",
+    "txn": "020000000136456371817a253a028ad24f4ed7a0a889c4486de389427b2442ab751b06e4630000000000ffffffff0200a3e111000000001600144d7be53912c01ef2eca2522bfa0be4bb19c789b3f09aeb0b00000000160014d6729230e02aed7cebf5d8f59a44d18f546399e100000000",
+    "inputs": [
+      {
+        "is_witness": true,
+        "satoshi": 500000000,
+        "script": "76a914cb0500ac7441ea3434149c1f228e85c1e402537c88ac",
+        "path": [2147483732, 2147483650, 2147483648, 0, 0]
+      }
+    ],
+    "change": [
+      null,
+      {
+        "path": [1, 345]
+      }
+    ],
+    "use_ae_signatures": false
+  },
+  "expected_error": "Green multisig is not supported on Litecoin networks"
+}
