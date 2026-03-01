@@ -579,37 +579,38 @@ YzNnQaWx24j5hX8iWcaZgTZJ6Y3sedLi'),
                              '2dafKNiCKbRum9S1u5BYqTByZT5R9zSqcWy'),
 
                             # Litecoin mainnet (coin type 2)
+                            # Derived from TEST_SEED_SINGLE_SIG (raw 32-byte seed)
                             ('litecoin', 'sh(wpkh(k))', None,
                              [2147483697, 2147483650, 2147483648, 0, 0],
-                             'ME5QLPNXsZ4TpMMPnC8iWx4cmUc5ad7Qnp'),
+                             'MFTVpEb89i8jJF8ocHfbgj8aMKMJeroQmx'),
                             ('litecoin', 'wpkh(k)', None,
                              [2147483732, 2147483650, 2147483648, 0, 0],
-                             'ltc1qevzsptr5g84rgdq5ns0j9r59c8jqy5mux824w4'),
+                             'ltc1qstam6cnhf87v45g3av2059s9rru39g9x2nskm8'),
                             ('litecoin', 'pkh(k)', None,
                              [2147483692, 2147483650, 2147483648, 0, 0],
-                             'Lew5sMN6AduTSqSjdyUxoSZi1jusKaXgqT'),
+                             'LUqDJB1qAbvtv5UB3trojUsHGzUkG7oBZ7'),
 
                             # Litecoin testnet (coin type 1)
                             ('testnet-litecoin', 'sh(wpkh(k))', None,
                              [2147483697, 2147483649, 2147483648, 0, 0],
-                             'QLcZGxvzaTYzuq9vxfxkmqjDHYaxX3p8uo'),
+                             'QSGTunoGzxw3WRwbythsjVjVHMrXX5xJPA'),
                             ('testnet-litecoin', 'wpkh(k)', None,
                              [2147483732, 2147483649, 2147483648, 0, 0],
-                             'tltc1q9t9pgtdsyf6r8ks7gnxvj99sea4d3nmjx8fdj4'),
+                             'tltc1qk8cmwrrjzy5vv9nmjy7ej5p9zhqjtpx306va8u'),
                             ('testnet-litecoin', 'pkh(k)', None,
                              [2147483692, 2147483649, 2147483648, 0, 0],
-                             'n14ZHegDebEj3kEFgpUbr2fuhcFbDoBVH1'),
+                             'n3SvYbpX2nFUKE62MwmruDqTmWZS3Kd7Vo'),
 
                             # Litecoin localtest/regtest (coin type 1, rltc HRP)
                             ('localtest-litecoin', 'sh(wpkh(k))', None,
                              [2147483697, 2147483649, 2147483648, 0, 0],
-                             'QLcZGxvzaTYzuq9vxfxkmqjDHYaxX3p8uo'),
+                             'QSGTunoGzxw3WRwbythsjVjVHMrXX5xJPA'),
                             ('localtest-litecoin', 'wpkh(k)', None,
                              [2147483732, 2147483649, 2147483648, 0, 0],
-                             'rltc1q9t9pgtdsyf6r8ks7gnxvj99sea4d3nmjrtghzt'),
+                             'rltc1qk8cmwrrjzy5vv9nmjy7ej5p9zhqjtpx32kd8hz'),
                             ('localtest-litecoin', 'pkh(k)', None,
                              [2147483692, 2147483649, 2147483648, 0, 0],
-                             'n14ZHegDebEj3kEFgpUbr2fuhcFbDoBVH1')]
+                             'n3SvYbpX2nFUKE62MwmruDqTmWZS3Kd7Vo')]
 
 # Hold test data in separate files as can be large
 QR_QVGA_SCAN_TESTS = 'qr_qvga_*.json'
