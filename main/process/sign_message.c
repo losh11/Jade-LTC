@@ -118,7 +118,8 @@ int sign_message_file(const char* str, const size_t str_len, uint8_t* sig_output
 
     const size_t len = str_end - ptr;
     uint8_t message_hash[SHA256_LEN];
-    if (!wallet_get_message_hash((const uint8_t*)ptr, len, message_hash, sizeof(message_hash))) {
+    // Message files (Specter format) don't carry network info, default to Bitcoin
+    if (!wallet_get_message_hash((const uint8_t*)ptr, len, NETWORK_BITCOIN, message_hash, sizeof(message_hash))) {
         *errmsg = "Failed to get message hash";
         return CBOR_RPC_INTERNAL_ERROR;
     }
@@ -187,6 +188,26 @@ void sign_message_process(void* process_ptr)
         return;
     }
 
+    // Extract optional network parameter (defaults to Bitcoin for backward compatibility)
+    network_t msg_network = NETWORK_BITCOIN;
+    if (rpc_has_field_data("network", &params)) {
+        char network_str[MAX_NETWORK_NAME_LEN];
+        size_t network_str_len = 0;
+        rpc_get_string("network", sizeof(network_str), &params, network_str, &network_str_len);
+        if (network_str_len == 0) {
+            // Field present but not a valid text string or too long
+            jade_process_reject_message(
+                process, CBOR_RPC_BAD_PARAMETERS, "Invalid network parameter type or length");
+            goto cleanup;
+        }
+        msg_network = network_from_name(network_str);
+        if (msg_network == NETWORK_NONE) {
+            jade_process_reject_message(
+                process, CBOR_RPC_BAD_PARAMETERS, "Unknown network for message signing");
+            goto cleanup;
+        }
+    }
+
     const char* message = NULL;
     size_t msg_len = 0;
     rpc_get_string_ptr("message", &params, &message, &msg_len);
@@ -196,8 +217,8 @@ void sign_message_process(void* process_ptr)
     }
 
     uint8_t message_hash[SHA256_LEN];
-    if (!wallet_get_message_hash((const uint8_t*)message, msg_len, message_hash, sizeof(message_hash))) {
-        jade_process_reject_message(process, CBOR_RPC_INTERNAL_ERROR, "Failed to convert message to btc hex format");
+    if (!wallet_get_message_hash((const uint8_t*)message, msg_len, msg_network, message_hash, sizeof(message_hash))) {
+        jade_process_reject_message(process, CBOR_RPC_INTERNAL_ERROR, "Failed to format message for signing");
         goto cleanup;
     }
 

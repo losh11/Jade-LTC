@@ -1470,17 +1470,19 @@ bool wallet_get_shared_blinding_nonce(const uint8_t* master_blinding_key, const 
     return true;
 }
 
-bool wallet_get_message_hash(const uint8_t* bytes, const size_t bytes_len, uint8_t* output, const size_t output_len)
+bool wallet_get_message_hash(
+    const uint8_t* bytes, const size_t bytes_len, const network_t network_id, uint8_t* output, const size_t output_len)
 {
     if (!bytes || bytes_len == 0 || !output || output_len != SHA256_LEN) {
         return false;
     }
 
     size_t written = 0;
-    const int wret
-        = wally_format_bitcoin_message(bytes, bytes_len, BITCOIN_MESSAGE_FLAG_HASH, output, output_len, &written);
+    const int wret = network_is_litecoin(network_id)
+        ? wally_format_litecoin_message(bytes, bytes_len, BITCOIN_MESSAGE_FLAG_HASH, output, output_len, &written)
+        : wally_format_bitcoin_message(bytes, bytes_len, BITCOIN_MESSAGE_FLAG_HASH, output, output_len, &written);
     if (wret != WALLY_OK || written != output_len) {
-        JADE_LOGE("Error trying to format btc message: %d", wret);
+        JADE_LOGE("Error trying to format message: %d", wret);
         return false;
     }
     return true;
