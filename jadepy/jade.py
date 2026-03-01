@@ -51,6 +51,50 @@ DEFAULT_BLE_SCAN_TIMEOUT = 60
 DEFAULT_LIBJADE_TIMEOUT = 5
 
 
+# Litecoin network name normalization.
+# Wallet plugins (e.g., Electrum-LTC) may use generic names like "mainnet"/"testnet"
+# which Jade maps to Bitcoin. This helper maps them to Litecoin-specific names.
+_LITECOIN_NETWORK_MAP = {
+    'mainnet': 'litecoin',
+    'testnet': 'testnet-litecoin',
+    'testnet4': 'testnet-litecoin',
+    'regtest': 'localtest-litecoin',
+    'localtest': 'localtest-litecoin',
+    # Pass through already-correct names
+    'litecoin': 'litecoin',
+    'testnet-litecoin': 'testnet-litecoin',
+    'localtest-litecoin': 'localtest-litecoin',
+}
+
+
+def litecoin_network(network):
+    """Normalize a generic network name to a Jade Litecoin network name.
+
+    Wallet plugins that use generic names like 'mainnet' or 'testnet' should
+    call this to get the correct Jade network string for Litecoin operations.
+
+    Parameters
+    ----------
+    network : str
+        Generic network name (e.g., 'mainnet', 'testnet', 'regtest')
+        or already-correct Litecoin name (e.g., 'litecoin')
+
+    Returns
+    -------
+    str
+        Jade-compatible Litecoin network name
+
+    Raises
+    ------
+    ValueError
+        If the network name is not recognized
+    """
+    result = _LITECOIN_NETWORK_MAP.get(network)
+    if result is None:
+        raise ValueError(f"Unknown network '{network}' for Litecoin normalization")
+    return result
+
+
 def _hexlify(data):
     """
     Helper to map bytes-like types into hex-strings
@@ -1233,7 +1277,8 @@ class JadeAPI:
         return self._jadeRpc('get_receive_address', params)
 
     def sign_message(self, path, message, use_ae_signatures=False,
-                     ae_host_commitment=None, ae_host_entropy=None):
+                     ae_host_commitment=None, ae_host_entropy=None,
+                     network=None):
         """
         RPC call to format and sign the given message, using the given bip32 path.
         Supports RFC6979 and Anti-Exfil signatures.
@@ -1252,6 +1297,12 @@ class JadeAPI:
         ae_host_entropy : 32-bytes, optional
             The host-entropy to use for Antil-Exfil signatures
 
+        network : str, optional
+            Network name to determine the message prefix.
+            e.g., 'litecoin', 'testnet-litecoin', 'localtest-litecoin'
+            for Litecoin message signing ("Litecoin Signed Message:\\n").
+            Defaults to Bitcoin message signing if not provided.
+
         Returns
         -------
         1. Legacy/RFC6979 signatures
@@ -1268,6 +1319,8 @@ class JadeAPI:
             # reply once the user confirms.
             # We can then request the actual signature passing the ae-entropy.
             params = {'path': path, 'message': message, 'ae_host_commitment': ae_host_commitment}
+            if network is not None:
+                params['network'] = network
             signer_commitment = self._jadeRpc('sign_message', params)
             params = {'ae_host_entropy': ae_host_entropy}
             signature = self._jadeRpc('get_signature', params)
@@ -1275,6 +1328,8 @@ class JadeAPI:
         else:
             # Standard EC signature, simple case
             params = {'path': path, 'message': message}
+            if network is not None:
+                params['network'] = network
             return self._jadeRpc('sign_message', params)
 
     def sign_message_file(self, message_file):
