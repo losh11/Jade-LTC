@@ -691,16 +691,54 @@ static bool psbt_update_outputs(const network_t network_id, struct wally_psbt* p
     return true;
 }
 
+// Check if any PSBT input has BIP32 keypaths with Litecoin coin type (2').
+// Uses wally_map_keypath_get_item_path() for endian-safe, alignment-safe reading
+// of keypath data (same API used in psbt.c:103,140,204).
+static bool psbt_has_litecoin_coin_type(const struct wally_psbt* psbt)
+{
+    JADE_ASSERT(psbt);
+    for (size_t i = 0; i < psbt->num_inputs; ++i) {
+        const struct wally_psbt_input* input = &psbt->inputs[i];
+        const struct wally_map* keypaths = &input->keypaths;
+
+        for (size_t k = 0; k < keypaths->num_items; ++k) {
+            uint32_t path[MAX_PATH_LEN];
+            size_t path_len = 0;
+            const int ret = wally_map_keypath_get_item_path(keypaths, k, path, MAX_PATH_LEN, &path_len);
+
+            if (ret != WALLY_OK || path_len < 2 || path_len > MAX_PATH_LEN) {
+                continue; // Skip malformed, too-short, or overlong paths
+            }
+
+            // path[1] is coin_type in BIP44+ paths: m/purpose'/coin_type'/...
+            if (path[1] == (BIP32_INITIAL_HARDENED_CHILD + 2)) { // 0x80000002 = 2' (Litecoin)
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 // Deduce the network to try to sign with given a psbt/pset.
+// For non-Elements PSBTs, checks BIP32 keypaths for Litecoin coin type (2')
+// to distinguish Litecoin from Bitcoin in airgapped (QR/USB) signing flows.
 network_t network_from_psbt_type(struct wally_psbt* psbt)
 {
     JADE_ASSERT(psbt);
     size_t is_elements = 0;
     JADE_WALLY_VERIFY(wally_psbt_is_elements(psbt, &is_elements));
-    if (keychain_get_network_type_restriction() == NETWORK_TYPE_TEST) {
-        return is_elements ? NETWORK_LIQUID_TESTNET : NETWORK_BITCOIN_TESTNET;
+    const bool is_test = (keychain_get_network_type_restriction() == NETWORK_TYPE_TEST);
+
+    if (is_elements) {
+        return is_test ? NETWORK_LIQUID_TESTNET : NETWORK_LIQUID;
     }
-    return is_elements ? NETWORK_LIQUID : NETWORK_BITCOIN;
+
+    // Check BIP32 keypaths for Litecoin coin type
+    if (psbt_has_litecoin_coin_type(psbt)) {
+        return is_test ? NETWORK_LITECOIN_TESTNET : NETWORK_LITECOIN;
+    }
+
+    return is_test ? NETWORK_BITCOIN_TESTNET : NETWORK_BITCOIN;
 }
 
 // Sign a psbt/pset - the passed wally psbt struct is updated with any signatures.
