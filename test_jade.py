@@ -621,6 +621,7 @@ MULTI_REG_BAD_FILE_TESTS = 'multisig_bad_file_*.json'
 DESCRIPTOR_REG_TESTS = 'descriptor_*.json'
 DESCRIPTOR_REG_SS_TESTS = 'descriptor_ss_*.json'
 SIGN_MSG_TESTS = 'msg_*.json'
+SIGN_LTC_MSG_TESTS = 'ltc_msg_*.json'
 SIGN_MSG_FILE_TESTS = 'msgfile_*.json'
 SIGN_IDENTITY_TESTS = 'identity_*.json'
 SIGN_TXN_TESTS = 'txn_*.json'
@@ -2614,7 +2615,8 @@ def _check_msg_signature(jadeapi, testcase, actual):
 
     inputdata = testcase['input']
     host_entropy = inputdata.get('ae_host_entropy')
-    network = 'localtest'  # Network is irrelevant to sign-msg
+    msg_network = inputdata.get('network')
+    network = 'localtest'  # Network for key derivation verification
 
     if host_entropy:
         # Anti-Exfil signer_commitment and signature
@@ -2625,9 +2627,12 @@ def _check_msg_signature(jadeapi, testcase, actual):
         assert actual == expected, actual
         signer_commitment, signature = None, actual  # No signer_commitment for EC sig
 
-    # Get the message hash
+    # Get the message hash using the appropriate prefix
     msgbytes = inputdata['message'].encode('utf8')
-    msghash = wally.format_bitcoin_message(msgbytes, wally.BITCOIN_MESSAGE_FLAG_HASH)
+    if msg_network and 'litecoin' in msg_network:
+        msghash = wally.format_litecoin_message(msgbytes, wally.BITCOIN_MESSAGE_FLAG_HASH)
+    else:
+        msghash = wally.format_bitcoin_message(msgbytes, wally.BITCOIN_MESSAGE_FLAG_HASH)
 
     rawsig = base64.b64decode(signature)  # un-base64 the returned signature
 
@@ -2902,14 +2907,15 @@ def test_get_xpubs(jadeapi):
         assert rslt == expected
 
 
-def test_sign_message(jadeapi):
-    for msg_data in _get_test_cases(SIGN_MSG_TESTS):
+def test_sign_message(jadeapi, pattern=SIGN_MSG_TESTS):
+    for msg_data in _get_test_cases(pattern):
         inputdata = msg_data['input']
         rslt = jadeapi.sign_message(inputdata['path'],
                                     inputdata['message'],
                                     inputdata.get('use_ae_signatures'),
                                     inputdata.get('ae_host_commitment'),
-                                    inputdata.get('ae_host_entropy'))
+                                    inputdata.get('ae_host_entropy'),
+                                    network=inputdata.get('network'))
 
         # Check returned signature
         _check_msg_signature(jadeapi, msg_data, rslt)
@@ -3748,7 +3754,44 @@ def test_ping_protocol(jade):
     assert jade_is_busy == 0  # idle
 
 
+def test_litecoin_network_normalization():
+    """Test the jadepy litecoin_network() helper function."""
+    from jadepy import litecoin_network
+
+    # Mainnet normalization
+    assert litecoin_network('mainnet') == 'litecoin'
+    assert litecoin_network('litecoin') == 'litecoin'
+
+    # Testnet normalization
+    assert litecoin_network('testnet') == 'testnet-litecoin'
+    assert litecoin_network('testnet4') == 'testnet-litecoin'
+    assert litecoin_network('testnet-litecoin') == 'testnet-litecoin'
+
+    # Regtest normalization
+    assert litecoin_network('regtest') == 'localtest-litecoin'
+    assert litecoin_network('localtest') == 'localtest-litecoin'
+    assert litecoin_network('localtest-litecoin') == 'localtest-litecoin'
+
+    # Unknown network should raise ValueError
+    try:
+        litecoin_network('invalid')
+        assert False, 'Expected ValueError'
+    except ValueError:
+        pass
+
+    try:
+        litecoin_network('')
+        assert False, 'Expected ValueError for empty string'
+    except ValueError:
+        pass
+
+    logger.info('litecoin_network() normalization tests passed')
+
+
 def run_api_tests(jadeapi, isble, qemu, authuser=False):
+
+    # Run pure-Python unit tests first (no Jade connection needed)
+    test_litecoin_network_normalization()
 
     rslt = jadeapi.clean_reset()
     assert rslt is True
@@ -3823,6 +3866,7 @@ def run_api_tests(jadeapi, isble, qemu, authuser=False):
     test_get_greenaddress_receive_address(jadeapi)
     test_get_xpubs(jadeapi)
     test_sign_message(jadeapi)
+    test_sign_message(jadeapi, SIGN_LTC_MSG_TESTS)
     test_sign_message_file(jadeapi)
 
     # Sign Tx - includes some failure cases

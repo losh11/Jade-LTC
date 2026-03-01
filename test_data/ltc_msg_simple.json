@@ -1,0 +1,10 @@
+{
+  "description": "Litecoin message signing - simple path, Litecoin message prefix",
+  "input": {
+    "path": [0],
+    "message": "Hello Litecoin",
+    "network": "litecoin",
+    "use_ae_signatures": false
+  },
+  "expected_output": "IDItHgoOHF246hYRffCQ73sVM10L8g/pS4vNJBj53xJ7DUUpTPG+vraiHOllC2FRjEDzI21CBc4OXn8dniLUrxc="
+}

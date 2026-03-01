@@ -1,0 +1,10 @@
+{
+  "description": "Litecoin message signing - BIP44 Litecoin path m/44'/2'/0'/0/0",
+  "input": {
+    "path": [2147483692, 2147483650, 2147483648, 0, 0],
+    "message": "Hello Litecoin",
+    "network": "litecoin",
+    "use_ae_signatures": false
+  },
+  "expected_output": "H69W/NlKkWmAwMmUec+r1oWPHRYWFDlJE+ybAdjz8/+LBx5oCY7DdWY2CqEVFQlV4duo+8xeUd3FyhSTCOg4EdM="
+}
