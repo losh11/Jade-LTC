@@ -40,6 +40,7 @@ target_link_options(${COMPONENT_TARGET} PRIVATE -Wl,-z,relro -Wl,-z,now)
 target_compile_definitions(${COMPONENT_TARGET} PRIVATE _FORTIFY_SOURCE=2)
 
 target_compile_definitions(${COMPONENT_TARGET} PRIVATE "-DBUILD_ELEMENTS=1")
+target_compile_definitions(${COMPONENT_TARGET} PRIVATE "-DBUILD_MWEB=1")
 target_compile_definitions(${COMPONENT_TARGET} PRIVATE "-DBUILD_MINIMAL=1")
 target_compile_definitions(${COMPONENT_TARGET} PRIVATE "-DHAVE_MBEDTLS_SHA256_H")
 target_compile_definitions(${COMPONENT_TARGET} PRIVATE "-DHAVE_MBEDTLS_SHA512_H")
