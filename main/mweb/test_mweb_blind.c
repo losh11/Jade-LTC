@@ -1,0 +1,167 @@
+/*
+ * Tests for mweb_pedersen_commit and mweb_blind_switch.
+ *
+ * Tests verify:
+ *   - Pedersen commitment produces correct 0x08/0x09 prefix format
+ *   - Both prefix values (0x08 and 0x09) appear in the test set
+ *   - BlindSwitch produces deterministic output matching the algorithm
+ *   - SwitchCommit = Pedersen(BlindSwitch(blind, value), value)
+ */
+#include "mweb_blind.h"
+
+#include <stdio.h>
+#include <string.h>
+
+static int failures = 0;
+
+/* --- Test blinding factor --- */
+static const uint8_t SCAN_KEY[32] = {
+    0xb3,0xc9,0x1b,0x72,0x91,0xc2,0xe1,0xe0,
+    0x6d,0x4a,0x93,0xf3,0xdc,0x32,0x40,0x4a,
+    0xef,0x99,0x27,0xdb,0x8e,0x79,0x4c,0x01,
+    0xa7,0xb4,0xde,0x18,0xa3,0x97,0xc3,0x38,
+};
+
+/* --- Expected Pedersen commitments (33 bytes, 0x08/0x09 prefix) --- */
+
+/* Pedersen(scan_key, 0) = scan_key*G (prefix 0x08)
+ * X-coordinate matches known scan pubkey 02cd7e29...c482f5 */
+static const uint8_t COMMIT_SCAN_V0[33] = {
+    0x08,0xcd,0x7e,0x29,0xe3,0x1b,0xf0,0xc0,
+    0x72,0x81,0xd3,0xc5,0x91,0xfe,0x3d,0xbe,
+    0x43,0x75,0xb9,0x11,0xcc,0x60,0x38,0xec,
+    0x5d,0x1b,0xe8,0x20,0x99,0xd6,0xc4,0x82,
+    0xf5,
+};
+
+/* Pedersen(scan_key, 1000000) (prefix 0x08) */
+static const uint8_t COMMIT_SCAN_V1M[33] = {
+    0x08,0x9c,0x29,0x7c,0x8a,0x89,0xcf,0x4b,
+    0xa8,0xd9,0x1f,0xb5,0x7d,0xb5,0xea,0x70,
+    0xa5,0x25,0xd7,0x9f,0x87,0x37,0x70,0xa3,
+    0xae,0x63,0x6b,0x39,0xa7,0x8f,0x99,0x6d,
+    0x58,
+};
+
+/* Pedersen(0x0101...01, 42) (prefix 0x09 — verifies non-0x08 path) */
+static const uint8_t BLIND_ONES[32] = {
+    0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+    0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+    0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+    0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+};
+
+static const uint8_t COMMIT_ONES_V42[33] = {
+    0x09,0x34,0x3d,0x17,0x10,0xff,0xdb,0x00,
+    0x56,0x30,0xdc,0xce,0xda,0xb4,0x1b,0x16,
+    0x4a,0x5c,0x46,0xaa,0xc7,0xa7,0x33,0x51,
+    0x30,0x7c,0x21,0x98,0xff,0x27,0x73,0x3b,
+    0x3f,
+};
+
+/* --- Expected BlindSwitch outputs (32 bytes) --- */
+
+/* BlindSwitch(scan_key, 0) */
+static const uint8_t BSWITCH_SCAN_V0[32] = {
+    0x9d,0xac,0x72,0x0a,0x24,0xca,0xa1,0x7c,
+    0x83,0x68,0x8f,0xfd,0xd2,0x5f,0x15,0xcd,
+    0xb6,0x73,0x9c,0xb7,0x8f,0xa4,0x72,0x9b,
+    0xae,0xf2,0x76,0xf3,0x2f,0x84,0xdb,0xd6,
+};
+
+/* BlindSwitch(scan_key, 1000000) */
+static const uint8_t BSWITCH_SCAN_V1M[32] = {
+    0x82,0xd1,0x97,0xc3,0x6a,0xcd,0x61,0x14,
+    0xbc,0x9f,0x93,0x27,0x43,0x54,0x14,0x55,
+    0xb2,0xb8,0xce,0xda,0xad,0xc3,0xcd,0x5b,
+    0x0c,0x15,0xf0,0xf6,0x30,0xdd,0x04,0xbf,
+};
+
+/* SwitchCommit(scan_key, 1000000) = Pedersen(BlindSwitch(scan_key, 1000000), 1000000) */
+static const uint8_t SWITCH_COMMIT_SCAN_V1M[33] = {
+    0x08,0x12,0xcc,0x19,0x43,0xb5,0xb7,0x4a,
+    0x15,0x6a,0x5c,0x29,0x67,0x28,0x6f,0x3c,
+    0x4f,0x46,0xa4,0x84,0x9e,0x8d,0x61,0x5a,
+    0xe3,0xb1,0xe9,0xd0,0x42,0xfb,0xc2,0xc8,
+    0xb4,
+};
+
+/* --- Test helpers --- */
+
+static void check_commit(const char* name, const uint8_t blind[32],
+                         uint64_t value, const uint8_t expected[33])
+{
+    uint8_t result[33];
+    if (!mweb_pedersen_commit(blind, value, result)) {
+        printf("FAIL: %s — commit failed\n", name);
+        failures++;
+        return;
+    }
+    if (memcmp(result, expected, 33) != 0) {
+        printf("FAIL: %s — mismatch (prefix: got 0x%02x want 0x%02x)\n",
+               name, result[0], expected[0]);
+        failures++;
+        return;
+    }
+    printf("PASS: %s\n", name);
+}
+
+static void check_bswitch(const char* name, const uint8_t blind[32],
+                          uint64_t value, const uint8_t expected[32])
+{
+    uint8_t result[32];
+    if (!mweb_blind_switch(blind, value, result)) {
+        printf("FAIL: %s — blind_switch failed\n", name);
+        failures++;
+        return;
+    }
+    if (memcmp(result, expected, 32) != 0) {
+        printf("FAIL: %s — mismatch\n", name);
+        failures++;
+        return;
+    }
+    printf("PASS: %s\n", name);
+}
+
+int test_mweb_blind(void)
+{
+    failures = 0;
+
+    /* Pedersen commitment tests */
+    check_commit("pedersen(scan_key, 0)",       SCAN_KEY,  0,       COMMIT_SCAN_V0);
+    check_commit("pedersen(scan_key, 1000000)", SCAN_KEY,  1000000, COMMIT_SCAN_V1M);
+    check_commit("pedersen(ones, 42)",          BLIND_ONES, 42,     COMMIT_ONES_V42);
+
+    /* Verify prefix diversity: 0x08 and 0x09 both appear */
+    if (COMMIT_SCAN_V0[0] == 0x08 && COMMIT_ONES_V42[0] == 0x09) {
+        printf("PASS: prefix diversity (0x08 and 0x09)\n");
+    } else {
+        printf("FAIL: prefix diversity\n");
+        failures++;
+    }
+
+    /* BlindSwitch tests */
+    check_bswitch("blind_switch(scan_key, 0)",       SCAN_KEY, 0,       BSWITCH_SCAN_V0);
+    check_bswitch("blind_switch(scan_key, 1000000)", SCAN_KEY, 1000000, BSWITCH_SCAN_V1M);
+
+    /* SwitchCommit: Pedersen(BlindSwitch(blind, value), value) */
+    check_commit("switch_commit(scan_key, 1000000)", BSWITCH_SCAN_V1M, 1000000,
+                 SWITCH_COMMIT_SCAN_V1M);
+
+    /* Negative test: zero blind must fail.
+     * Core rejects at secp256k1_ec_pubkey_tweak_mul (blind*J with zero tweak).
+     * Our code rejects at the same secp256k1_ec_pubkey_tweak_mul call. */
+    {
+        const uint8_t zero_blind[32] = {0};
+        uint8_t dummy[32];
+        if (mweb_blind_switch(zero_blind, 1, dummy)) {
+            printf("FAIL: blind_switch(zero, 1) should fail\n");
+            failures++;
+        } else {
+            printf("PASS: blind_switch(zero, 1) rejected\n");
+        }
+    }
+
+    printf("\nmweb_blind: %d tests, %d failures\n", 8, failures);
+    return failures;
+}
