@@ -56,4 +56,15 @@ bool mweb_derive_address(const uint8_t scan_key[32],
 /* Get MWEB bech32 HRP for a network. Returns NULL for non-Litecoin networks. */
 const char* mweb_network_hrp(network_t network);
 
+/*
+ * Bech32-encode a raw 66-byte stealth address payload (A_i || B_i).
+ * Used by PSBT signing to display MWEB outputs whose stealth address
+ * bytes are already available (as opposed to mweb_derive_address which
+ * derives the payload from keys).
+ *
+ * output must be at least 128 bytes. Returns true on success.
+ */
+bool mweb_bech32_encode_payload(const uint8_t* payload, size_t payload_len,
+                                const char* hrp, char* output, size_t output_len);
+
 #endif /* MWEB_KEYCHAIN_H_ */

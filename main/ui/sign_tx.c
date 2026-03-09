@@ -809,4 +809,15 @@ bool show_mweb_address_activity(const char* address, const network_t network)
     const bool default_selection = true;
     return show_confirm_address_activity(address, default_selection);
 }
+
+bool show_mweb_output_activity(
+    const char* title, const char* address, const char* amount, const network_t network)
+{
+    JADE_ASSERT(title);
+    JADE_ASSERT(address);
+    JADE_ASSERT(amount);
+    JADE_ASSERT(network_is_litecoin(network));
+
+    return show_input_output_activity(title, false, true, address, amount, network_ticker(network), NULL, NULL, NULL);
+}
 #endif // AMALGAMATED_BUILD

@@ -287,3 +287,29 @@ cleanup:
     wally_bzero(mi_input, sizeof(mi_input));
     return ok;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Public bech32 encoding for raw stealth address payloads            */
+/* ------------------------------------------------------------------ */
+
+bool mweb_bech32_encode_payload(const uint8_t* payload, size_t payload_len,
+                                const char* hrp, char* output, size_t output_len)
+{
+    if (!payload || payload_len != 66 || !hrp || !output || output_len < 128) {
+        return false;
+    }
+
+    /* convertbits(8→5): 66 bytes × 8 = 528 bits → ceil(528/5) = 106 five-bit values */
+    uint8_t data5[1 + 107]; /* version byte + max converted */
+    size_t data5_len = 0;
+    data5[0] = 0; /* witness version 0 */
+    data5_len = 1;
+
+    size_t converted_len = 0;
+    if (!mweb_convert_bits(data5 + 1, &converted_len, 5, payload, 66, 8, 1)) {
+        return false;
+    }
+    data5_len += converted_len;
+
+    return mweb_bech32_encode(output, hrp, data5, data5_len) == 1;
+}
