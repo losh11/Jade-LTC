@@ -7,7 +7,7 @@ Test 2: MWEB input signing via standalone RPC (sign_mweb_input)
 Test 3: Pure-MWEB PSBTv2 signing via sign_psbt
 
 Requirements:
-  uvx --with cbor2 --with pyserial --with ecdsa --with blake3 --with base58 python3 test_e2e_psbt.py
+    uvx --with cbor2 --with pyserial --with ecdsa --with blake3 --with base58 python3 test_e2e_psbt.py (device_port) --serial-timeout 2 --boot-timeout 30
 
 If the Jade is locked, this script will request PIN entry on-device.
 """
