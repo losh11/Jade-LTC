@@ -6,6 +6,7 @@ void __wrap_abort(void);
 #define abort __wrap_abort
 
 #define BUILD_ELEMENTS 1
+#define BUILD_MWEB 1
 #define BUILD_MINIMAL 1
 #ifndef CONFIG_LIBJADE
 #define HAVE_MBEDTLS_SHA256_H
