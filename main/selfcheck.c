@@ -1512,6 +1512,12 @@ bool debug_selfcheck(jade_process_t* process)
     }
 #endif
 
+    // MWEB crypto primitive tests
+    bool test_mweb_crypto(void);
+    if (!test_mweb_crypto()) {
+        FAIL();
+    }
+
     // PASS !
     return true;
 }

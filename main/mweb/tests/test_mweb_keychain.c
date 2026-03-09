@@ -10,6 +10,7 @@
 #include "mweb_keychain.h"
 #include "../keychain.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -54,7 +55,7 @@ static void test_address(uint32_t index, const char* expected)
 {
     char* addr = NULL;
     char name[64];
-    snprintf(name, sizeof(name), "derive_address(index=%u)", index);
+    snprintf(name, sizeof(name), "derive_address(index=%" PRIu32 ")", index);
 
     if (!mweb_derive_address(SCAN_KEY, SPEND_KEY, index,
                              NETWORK_LITECOIN, &addr)) {
