@@ -24,4 +24,8 @@ bool show_elements_swap_activity(network_t network_id, bool initial_proposal, co
     size_t num_in_sums, const asset_summary_t* out_sums, size_t num_out_sums, const asset_info_t* assets,
     size_t num_assets);
 
+// MWEB UI screens
+bool show_mweb_scan_key_export_activity(network_t network);
+bool show_mweb_address_activity(const char* address, network_t network);
+
 #endif /* UI_SIGN_TX_H_ */

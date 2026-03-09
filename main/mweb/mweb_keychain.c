@@ -12,13 +12,13 @@
 
 /* ------------------------------------------------------------------ */
 /*  Bech32 encoding (Pieter Wuille, MIT license)                      */
-/*  Reimplemented here because libwally's bech32_encode/convert_bits   */
+/*  Reimplemented here because libwally's bech32_encode/mweb_convert_bits   */
 /*  are static and segwit_addr_encode rejects programs > 40 bytes.     */
 /* ------------------------------------------------------------------ */
 
-static const char BECH32_CHARSET[] = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+static const char MWEB_BECH32_CHARSET[] = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
-static uint32_t bech32_polymod_step(uint32_t pre)
+static uint32_t mweb_bech32_polymod_step(uint32_t pre)
 {
     uint8_t b = pre >> 25;
     return ((pre & 0x1FFFFFF) << 5) ^
@@ -34,7 +34,7 @@ static uint32_t bech32_polymod_step(uint32_t pre)
  * out/outlen must be pre-zeroed (*outlen = 0).
  * Returns 1 on success.
  */
-static int convert_bits(uint8_t* out, size_t* outlen, int outbits,
+static int mweb_convert_bits(uint8_t* out, size_t* outlen, int outbits,
                         const uint8_t* in, size_t inlen, int inbits, int pad)
 {
     uint32_t val = 0;
@@ -75,11 +75,11 @@ static int mweb_bech32_encode(char* output, const char* hrp,
         if (ch < 33 || ch > 126 || (ch >= 'A' && ch <= 'Z')) {
             return 0;
         }
-        chk = bech32_polymod_step(chk) ^ (ch >> 5);
+        chk = mweb_bech32_polymod_step(chk) ^ (ch >> 5);
     }
-    chk = bech32_polymod_step(chk);
+    chk = mweb_bech32_polymod_step(chk);
     for (i = 0; i < hrp_len; ++i) {
-        chk = bech32_polymod_step(chk) ^ (hrp[i] & 0x1f);
+        chk = mweb_bech32_polymod_step(chk) ^ (hrp[i] & 0x1f);
         *(output++) = hrp[i];
     }
     *(output++) = '1';
@@ -89,17 +89,17 @@ static int mweb_bech32_encode(char* output, const char* hrp,
         if (data[i] >> 5) {
             return 0;
         }
-        chk = bech32_polymod_step(chk) ^ data[i];
-        *(output++) = BECH32_CHARSET[data[i]];
+        chk = mweb_bech32_polymod_step(chk) ^ data[i];
+        *(output++) = MWEB_BECH32_CHARSET[data[i]];
     }
 
     /* Checksum (bech32, constant = 1) */
     for (i = 0; i < 6; ++i) {
-        chk = bech32_polymod_step(chk);
+        chk = mweb_bech32_polymod_step(chk);
     }
     chk ^= 1;
     for (i = 0; i < 6; ++i) {
-        *(output++) = BECH32_CHARSET[(chk >> ((5 - i) * 5)) & 0x1f];
+        *(output++) = MWEB_BECH32_CHARSET[(chk >> ((5 - i) * 5)) & 0x1f];
     }
     *output = 0;
     return 1;
@@ -254,14 +254,14 @@ bool mweb_derive_address(const uint8_t scan_key[32],
     memcpy(payload, Ai_bytes, 33);
     memcpy(payload + 33, Bi_bytes, 33);
 
-    /* convert_bits: 66 bytes × 8 bits = 528 bits → ceil(528/5) = 106 five-bit values */
+    /* mweb_convert_bits: 66 bytes × 8 bits = 528 bits → ceil(528/5) = 106 five-bit values */
     uint8_t data5[1 + 107]; /* version byte + max converted */
     size_t data5_len = 0;
     data5[0] = 0; /* witness version 0 */
     data5_len = 1;
 
     size_t converted_len = 0;
-    if (!convert_bits(data5 + 1, &converted_len, 5, payload, 66, 8, 1)) {
+    if (!mweb_convert_bits(data5 + 1, &converted_len, 5, payload, 66, 8, 1)) {
         goto cleanup;
     }
     data5_len += converted_len;

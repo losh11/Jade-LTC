@@ -326,9 +326,23 @@ gui_activity_t* make_wallet_settings_activity(void)
 
     btn_data_t menubtns[] = { { .txt = "Export Xpub", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_XPUB_EXPORT },
         { .txt = "Registered Wallets", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_REGISTERED_WALLETS },
-        { .txt = "BIP85", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_BIP85 } };
+        { .txt = "BIP85", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_BIP85 },
+        { .txt = "MWEB", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_MWEB } };
 
-    return make_menu_activity("Wallet", hdrbtns, 2, menubtns, 3);
+    return make_menu_activity("Wallet", hdrbtns, 2, menubtns, 4);
+}
+
+gui_activity_t* make_mweb_settings_activity(void)
+{
+    btn_data_t hdrbtns[] = { { .txt = "=", .font = JADE_SYMBOLS_16x16_FONT, .ev_id = BTN_SETTINGS_MWEB_EXIT },
+        { .txt = NULL, .font = GUI_DEFAULT_FONT, .ev_id = GUI_BUTTON_EVENT_NONE } };
+
+    btn_data_t menubtns[] = {
+        { .txt = "View Address", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_MWEB_ADDRESS },
+        { .txt = "Export Scan Key", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_MWEB_SCAN_KEY },
+    };
+
+    return make_menu_activity("MWEB", hdrbtns, 2, menubtns, 2);
 }
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3) && defined(CONFIG_HAS_BATTERY)

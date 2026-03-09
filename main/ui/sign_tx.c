@@ -19,6 +19,7 @@
 // from confirm_address
 gui_activity_t* make_display_address_activities(const char* title, bool show_one_screen_tick, const char* address,
     bool default_selection, gui_activity_t** actaddr2);
+bool show_confirm_address_activity(const char* address, bool default_selection);
 
 // A warning to display if the asset registry data is missing
 static const char MISSING_ASSET_DATA[] = "Amounts may be shown in the wrong units.      Continue at your own   risk.";
@@ -785,5 +786,27 @@ bool show_elements_final_confirmation_activity(
     JADE_ASSERT(ret > 0 && ret < sizeof(feeamount));
 
     return show_final_confirmation_activity(title, feeamount, ticker, warning_msg);
+}
+
+// MWEB UI screens
+bool show_mweb_scan_key_export_activity(const network_t network)
+{
+    JADE_ASSERT(network_is_litecoin(network));
+
+    char line2[48];
+    const int ret = snprintf(line2, sizeof(line2), "scan key for %s?", network_to_name(network));
+    JADE_ASSERT(ret > 0 && ret < sizeof(line2));
+
+    const char* question[] = { "Export MWEB", line2 };
+    return await_yesno_activity("MWEB Scan Key", question, 2, true, NULL);
+}
+
+bool show_mweb_address_activity(const char* address, const network_t network)
+{
+    JADE_ASSERT(address);
+    JADE_ASSERT(network_is_litecoin(network));
+
+    const bool default_selection = true;
+    return show_confirm_address_activity(address, default_selection);
 }
 #endif // AMALGAMATED_BUILD

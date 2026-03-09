@@ -45,6 +45,9 @@ static inline bool awaiting_attestation_data(void) { return false; }
 #include "process/ota_defines.h"
 #include "process_utils.h"
 
+#include "../mweb/mweb_keychain.h"
+#include "../ui/sign_tx.h"
+
 #include <esp_ota_ops.h>
 
 #include <ctype.h>
@@ -145,6 +148,9 @@ void get_blinding_factor_process(void* process_ptr);
 void sign_liquid_tx_process(void* process_ptr);
 void get_bip85_pubkey_process(void* process_ptr);
 void sign_bip85_digests_process(void* process_ptr);
+void get_mweb_scan_key_process(void* process_ptr);
+void get_mweb_address_process(void* process_ptr);
+void sign_mweb_input_process(void* process_ptr);
 #ifdef CONFIG_DEBUG_MODE
 void get_bip85_bip39_entropy_process(void* process_ptr);
 void get_bip85_rsa_entropy_process(void* process_ptr);
@@ -180,6 +186,7 @@ gui_activity_t* make_locked_settings_activity(void);
 gui_activity_t* make_unlocked_settings_activity(void);
 
 gui_activity_t* make_wallet_settings_activity(void);
+gui_activity_t* make_mweb_settings_activity(void);
 gui_activity_t* make_device_settings_activity(void);
 gui_activity_t* make_usbstorage_settings_activity(bool unlocked);
 gui_activity_t* make_authentication_activity(bool initialised_and_pin_unlocked);
@@ -589,6 +596,12 @@ static void dispatch_message(jade_process_t* process)
             task_function = get_blinding_factor_process;
         } else if (IS_METHOD("get_master_blinding_key")) {
             task_function = get_master_blinding_key_process;
+        } else if (IS_METHOD("get_mweb_scan_key")) {
+            task_function = get_mweb_scan_key_process;
+        } else if (IS_METHOD("get_mweb_address")) {
+            task_function = get_mweb_address_process;
+        } else if (IS_METHOD("sign_mweb_input")) {
+            task_function = sign_mweb_input_process;
         } else if (IS_METHOD("get_blinding_key")) {
             task_function = get_blinding_key_process;
         } else if (IS_METHOD("get_shared_nonce")) {
@@ -2117,6 +2130,79 @@ static gui_activity_t* create_settings_menu(const bool startup_menu)
     return act;
 }
 
+static void handle_mweb_address(void)
+{
+    /* Use mainnet for on-device address display.
+     * The RPC get_mweb_address allows specifying network. */
+    const network_t network = NETWORK_LITECOIN;
+
+    uint8_t scan_key[32], spend_key[32];
+    SENSITIVE_PUSH(scan_key, sizeof(scan_key));
+    SENSITIVE_PUSH(spend_key, sizeof(spend_key));
+
+    if (!mweb_derive_standard_keys(scan_key, spend_key)) {
+        SENSITIVE_POP(spend_key);
+        SENSITIVE_POP(scan_key);
+        const char* errmsg[] = { "Failed to derive", "MWEB keys" };
+        await_error_activity(errmsg, 2);
+        return;
+    }
+
+    char* address = NULL;
+    if (!mweb_derive_address(scan_key, spend_key, 0, network, &address)) {
+        SENSITIVE_POP(spend_key);
+        SENSITIVE_POP(scan_key);
+        const char* errmsg[] = { "Failed to derive", "MWEB address" };
+        await_error_activity(errmsg, 2);
+        return;
+    }
+
+    SENSITIVE_POP(spend_key);
+    SENSITIVE_POP(scan_key);
+
+    show_mweb_address_activity(address, network);
+    wally_free_string(address);
+}
+
+static void handle_mweb_scan_key_export(void)
+{
+    const network_t network = NETWORK_LITECOIN;
+
+    if (!show_mweb_scan_key_export_activity(network)) {
+        return; /* User declined */
+    }
+
+    uint8_t scan_key[32], spend_key[32];
+    SENSITIVE_PUSH(scan_key, sizeof(scan_key));
+    SENSITIVE_PUSH(spend_key, sizeof(spend_key));
+
+    if (!mweb_derive_standard_keys(scan_key, spend_key)) {
+        SENSITIVE_POP(spend_key);
+        SENSITIVE_POP(scan_key);
+        const char* errmsg[] = { "Failed to derive", "MWEB keys" };
+        await_error_activity(errmsg, 2);
+        return;
+    }
+
+    /* Display the scan key as a QR code for the companion wallet to scan */
+    const char* qr_label[] = { "MWEB Scan Key" };
+    await_single_qr_activity(qr_label, 1, scan_key, sizeof(scan_key));
+
+    /* Then show the hex representation for manual verification */
+    char* hexptr = NULL;
+    if (wally_hex_from_bytes(scan_key, 32, &hexptr) == WALLY_OK && hexptr) {
+        const bool show_help_btn = false;
+        gui_activity_t* const act = make_show_single_value_activity("Scan Key in Text", hexptr, show_help_btn);
+        gui_set_current_activity(act);
+        int32_t ev_id;
+        gui_activity_wait_event(act, GUI_BUTTON_EVENT, ESP_EVENT_ANY_ID, NULL, &ev_id, NULL, 0);
+        wally_free_string(hexptr);
+    }
+
+    SENSITIVE_POP(spend_key);
+    SENSITIVE_POP(scan_key);
+}
+
 static void handle_settings(const bool startup_menu)
 {
     // Create the appropriate 'Settings' menu
@@ -2308,6 +2394,22 @@ static void handle_settings(const bool startup_menu)
 
         case BTN_SETTINGS_BIP85:
             handle_bip85_mnemonic();
+            break;
+
+        case BTN_SETTINGS_MWEB:
+            act = make_mweb_settings_activity();
+            break;
+
+        case BTN_SETTINGS_MWEB_EXIT:
+            act = make_wallet_settings_activity();
+            break;
+
+        case BTN_SETTINGS_MWEB_ADDRESS:
+            handle_mweb_address();
+            break;
+
+        case BTN_SETTINGS_MWEB_SCAN_KEY:
+            handle_mweb_scan_key_export();
             break;
 
         case BTN_SETTINGS_QR_PINSERVER:
