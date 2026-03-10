@@ -299,21 +299,21 @@ static esp_err_t panel_sh8601_mirror(esp_lcd_panel_t *panel, bool mirror_x, bool
 {
     sh8601_panel_t *sh8601 = __containerof(panel, sh8601_panel_t, base);
     esp_lcd_panel_io_handle_t io = sh8601->io;
-    esp_err_t ret = ESP_OK;
 
     if (mirror_x) {
-        sh8601->madctl_val |= BIT(6);
+        sh8601->madctl_val |= BIT(6); // MX: Column Address Order
     } else {
         sh8601->madctl_val &= ~BIT(6);
     }
     if (mirror_y) {
-        ESP_LOGE(TAG, "mirror_y is not supported by this panel");
-        ret = ESP_ERR_NOT_SUPPORTED;
+        sh8601->madctl_val |= BIT(7); // MY: Row Address Order
+    } else {
+        sh8601->madctl_val &= ~BIT(7);
     }
     ESP_RETURN_ON_ERROR(tx_param(sh8601, io, LCD_CMD_MADCTL, (uint8_t[]) {
         sh8601->madctl_val
     }, 1), TAG, "send command failed");
-    return ret;
+    return ESP_OK;
 }
 
 static esp_err_t panel_sh8601_swap_xy(esp_lcd_panel_t *panel, bool swap_axes)

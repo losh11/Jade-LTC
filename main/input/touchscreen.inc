@@ -79,14 +79,16 @@ static void touchscreen_task(void* ignored)
     uint16_t touch_strength[1];
     uint8_t touch_cnt = 10;
 
-    // FIXME: don't allow multiple touches within 300 ms?
-    // FIXME: this doesn't currently work with Display -> Flip Orientation feature
-    // but it could by changing the touch_y[0] > 200 logic with < 40 and inverting prev with next and viceversa
     while (!shutdown_requested) {
         if (esp_lcd_touch_read_data(ret_touch) == ESP_OK) {
             bool touchpad_pressed
                 = esp_lcd_touch_get_coordinates(ret_touch, touch_x, touch_y, touch_strength, &touch_cnt, 1);
             if (touchpad_pressed) {
+                // When orientation is flipped 180°, invert Y so touches at the
+                // physical top (where virtual buttons now appear) are detected.
+                if (gui_get_flipped_orientation()) {
+                    touch_y[0] = tp_cfg.y_max - touch_y[0];
+                }
                 const uint16_t first_third_end = CONFIG_DISPLAY_WIDTH / 3;
                 const uint16_t middle_thirds_end = (CONFIG_DISPLAY_WIDTH * 2) / 3;
                 if (touch_y[0] > (CONFIG_DISPLAY_HEIGHT - 40)) {
