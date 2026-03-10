@@ -29,6 +29,7 @@
 #include <nimble/nimble_port_freertos.h>
 #include <services/gap/ble_svc_gap.h>
 #include <services/gatt/ble_svc_gatt.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -139,8 +140,8 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         .uuid = &service_uuid.u,
         .characteristics = (struct ble_gatt_chr_def[]){ { .uuid = &tx_chr_uuid.u,
                                                             .access_cb = gatt_chr_event,
-                                                            .flags = BLE_GATT_CHR_F_INDICATE | BLE_GATT_CHR_F_READ_ENC
-                                                                | BLE_GATT_CHR_F_READ_AUTHEN,
+                                                            .flags = BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_INDICATE
+                                                                | BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_READ_AUTHEN,
                                                             .val_handle = &tx_val_handle },
             { .uuid = &rx_chr_uuid.u,
                 .access_cb = gatt_chr_event,
@@ -319,12 +320,15 @@ static bool write_ble(const uint8_t* msg, const size_t towrite, void* ignore)
 
         do {
             ++try;
-            // os_mbuf data is consumed by indicate_custom, regardless of the outcome
+            // os_mbuf data is consumed by notify_custom, regardless of the outcome
             struct os_mbuf* data = ble_hs_mbuf_from_flat(msg + written, writenow);
             if (!data) {
                 rc = ESP_FAIL;
             } else {
-                rc = ble_gatts_indicate_custom(peer_conn_handle, tx_val_handle, data);
+                // Use notifications (not indications) because indication confirmation
+                // handling requires BLE_ROLE_CENTRAL which is disabled in this config.
+                // With indications, GATT procs leak (never freed) and pool exhausts after 4.
+                rc = ble_gatts_notify_custom(peer_conn_handle, tx_val_handle, data);
             }
             if (rc != 0) {
                 if ((try % 16) == 1) {
@@ -344,7 +348,6 @@ static bool write_ble(const uint8_t* msg, const size_t towrite, void* ignore)
 
         JADE_LOGD("written %u bytes", writenow);
         written += writenow;
-        xTaskNotifyWait(0x00, ULONG_MAX, NULL, portMAX_DELAY);
     }
     return true;
 }
@@ -355,7 +358,10 @@ static void ble_writer(void* ignore)
         while (jade_process_get_out_message(&write_ble, SOURCE_BLE, NULL)) {
             // process messages
         }
-        xTaskNotifyWait(0x00, ULONG_MAX, NULL, 100 / portTICK_PERIOD_MS);
+        // Wait for new messages. jade_process_push_out_message() calls
+        // xTaskNotify(handle, 0, eNoAction) which sets the notification
+        // state to pending, waking xTaskNotifyWait.
+        xTaskNotifyWait(0x00, ULONG_MAX, NULL, pdMS_TO_TICKS(100));
     }
 
     // Post 'exit' event and wait to be killed
@@ -668,11 +674,7 @@ static int ble_gap_event(struct ble_gap_event* event, void* arg)
         return 0;
 
     case BLE_GAP_EVENT_NOTIFY_TX:
-        // ble device got our notification, we can send the next msg
-        JADE_LOGI("notify tx received, notifying writer");
-        if (p_ble_writer_handle != NULL) {
-            xTaskNotify(*p_ble_writer_handle, 0, eNoAction);
-        }
+        JADE_LOGD("notify tx attr=%d status=%d", event->notify_tx.attr_handle, event->notify_tx.status);
         break;
 
     case BLE_GAP_EVENT_ADV_COMPLETE:
