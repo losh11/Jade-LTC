@@ -6,8 +6,15 @@ Test 1: Standard LTC PSBTv0 signing (P2WPKH)
 Test 2: MWEB input signing via standalone RPC (sign_mweb_input)
 Test 3: Pure-MWEB PSBTv2 signing via sign_psbt
 
-Requirements:
-    uvx --with cbor2 --with pyserial --with ecdsa --with blake3 --with base58 python3 test_e2e_psbt.py (device_port) --serial-timeout 2 --boot-timeout 30
+Requirements (serial):
+    uv run --with cbor2 --with pyserial --with ecdsa --with blake3 --with base58 python test_ltc_psbt.py [device_port]
+
+Requirements (BLE — scan for devices):
+    uv run --with cbor2 --with pyserial --with ecdsa --with blake3 --with base58 --with bleak --with aioitertools python test_ltc_psbt.py --ble-scan
+
+Requirements (BLE — run tests):
+    uv run --with cbor2 --with pyserial --with ecdsa --with blake3 --with base58 --with bleak --with aioitertools python test_ltc_psbt.py --ble
+    uv run --with cbor2 --with pyserial --with ecdsa --with blake3 --with base58 --with bleak --with aioitertools python test_ltc_psbt.py --bleid <serial_suffix>
 
 If the Jade is locked, this script will request PIN entry on-device.
 """
@@ -20,6 +27,9 @@ import hmac
 import time
 import argparse
 import json
+import logging
+import threading
+import _thread
 import urllib.error
 import urllib.request
 
@@ -34,10 +44,18 @@ from ecdsa.ellipticcurve import Point
 sys.path.insert(0, os.path.dirname(__file__))
 from jadepy import JadeAPI, JadeError
 
+# Enable jadepy logging so BLE scan/connect progress is visible
+jadehandler = logging.StreamHandler()
+jadehandler.setLevel(logging.INFO)
+
+logger = logging.getLogger('jadepy.jade')
+logger.setLevel(logging.DEBUG)
+logger.addHandler(jadehandler)
 
 DEFAULT_SERIAL_TIMEOUT = 2.0
 DEFAULT_BOOT_TIMEOUT = 30.0
 DEFAULT_POLL_INTERVAL = 0.5
+DEFAULT_BLE_SCAN_TIMEOUT = 10
 
 
 # ---------------------------------------------------------------------------
@@ -297,10 +315,87 @@ def find_field(section, key_type):
     return None
 
 
+# ---------------------------------------------------------------------------
+#  BLE device scanning and selection
+# ---------------------------------------------------------------------------
+
+def scan_for_jade_devices(scan_timeout=DEFAULT_BLE_SCAN_TIMEOUT):
+    """Scan for BLE devices advertising as Jade. Returns list of (name, address)."""
+    try:
+        import bleak
+    except ImportError:
+        print("ERROR: bleak not installed. Add --with bleak --with aioitertools to your uv command.",
+              file=sys.stderr)
+        sys.exit(1)
+
+    import asyncio
+
+    async def _scan():
+        print(f"Scanning for Jade BLE devices ({scan_timeout}s)...", flush=True)
+        devices = await bleak.BleakScanner.discover(timeout=scan_timeout)
+        jade_devices = []
+        for dev in devices:
+            if dev.name and dev.name.startswith('Jade'):
+                jade_devices.append((dev.name, dev.address))
+        return jade_devices
+
+    return asyncio.run(_scan())
+
+
+def select_ble_device(scan_timeout=DEFAULT_BLE_SCAN_TIMEOUT):
+    """Scan for Jade BLE devices and interactively select one.
+    Returns the serial_number filter string (or None for a bare 'Jade' name)."""
+    devices = scan_for_jade_devices(scan_timeout)
+
+    if not devices:
+        print("\nNo Jade BLE devices found. Ensure your Jade is:", flush=True)
+        print("  - Powered on and past the boot screen", flush=True)
+        print("  - Bluetooth enabled (check Jade settings)", flush=True)
+        print("  - Not already connected to another host", flush=True)
+        sys.exit(1)
+
+    print(f"\nFound {len(devices)} Jade device(s):\n", flush=True)
+    for i, (name, addr) in enumerate(devices, 1):
+        print(f"  [{i}] {name}  ({addr})", flush=True)
+
+    if len(devices) == 1:
+        name, addr = devices[0]
+        print(f"\nAuto-selecting: {name}\n", flush=True)
+        parts = name.split()
+        return parts[-1] if len(parts) > 1 else None
+
+    print()
+    while True:
+        try:
+            raw = input(f"Select device [1-{len(devices)}]: ").strip()
+            if not raw:
+                continue
+            choice = int(raw)
+            if 1 <= choice <= len(devices):
+                name, addr = devices[choice - 1]
+                parts = name.split()
+                return parts[-1] if len(parts) > 1 else None
+        except (ValueError, EOFError):
+            pass
+        except KeyboardInterrupt:
+            print()
+            sys.exit(1)
+        print(f"Please enter a number between 1 and {len(devices)}", flush=True)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Run end-to-end PSBT signing tests against a Jade device.')
     parser.add_argument('serialport', nargs='?', default=None,
                         help='Serial device path. Defaults to auto-detect.')
+    parser.add_argument('--ble', action='store_true', default=False,
+                        help='Connect over BLE instead of serial.')
+    parser.add_argument('--bleid', default=None,
+                        help='BLE device serial number (suffix filter). Implies --ble.')
+    parser.add_argument('--ble-scan', dest='ble_scan', action='store_true', default=False,
+                        help='Scan for Jade BLE devices and exit.')
+    parser.add_argument('--ble-scan-timeout', dest='ble_scan_timeout', type=float,
+                        default=DEFAULT_BLE_SCAN_TIMEOUT,
+                        help=f'BLE scan timeout in seconds (default: {DEFAULT_BLE_SCAN_TIMEOUT}).')
     parser.add_argument('--serial-timeout', dest='serial_timeout', type=float,
                         default=DEFAULT_SERIAL_TIMEOUT,
                         help=f'Per-read serial timeout in seconds (default: {DEFAULT_SERIAL_TIMEOUT:g}).')
@@ -310,54 +405,66 @@ def parse_args():
     parser.add_argument('--poll-interval', dest='poll_interval', type=float,
                         default=DEFAULT_POLL_INTERVAL,
                         help=f'Polling interval while waiting for Jade to boot (default: {DEFAULT_POLL_INTERVAL:g}).')
-    return parser.parse_args()
+    parser.add_argument('--log', dest='loglevel', default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
+                        help='Logging level (default: INFO).')
+    args = parser.parse_args()
+    jadehandler.setLevel(getattr(logging, args.loglevel))
+    if args.bleid:
+        args.ble = True
+    if args.ble_scan:
+        args.ble = True
+    return args
 
 
-def wait_for_version_info(jade, boot_timeout, poll_interval):
-    deadline = time.monotonic() + boot_timeout
-    last_error = None
-    waiting_message_printed = False
+def rpc_with_timeout(fn, timeout, label="RPC"):
+    """Run fn() in the main thread with a watchdog timer.
 
-    while time.monotonic() < deadline:
-        try:
-            return jade.get_version_info(nonblocking=True)
-        except (EOFError, JadeError, AssertionError) as exc:
-            last_error = exc
-            if not waiting_message_printed:
-                print("Waiting for Jade to finish booting and answer RPCs...", flush=True)
-                waiting_message_printed = True
-            time.sleep(poll_interval)
-
-    raise TimeoutError(
-        f"Timed out waiting for Jade after {boot_timeout:g}s. "
-        f"Last error: {last_error!r}"
-    )
+    Uses the same pattern as test_jade.py: a Timer thread sends
+    KeyboardInterrupt to the main thread if the call takes too long.
+    The RPC stays on the main thread so bleak's event loop works correctly.
+    """
+    timer = threading.Timer(timeout, _thread.interrupt_main)
+    timer.start()
+    try:
+        return fn()
+    except KeyboardInterrupt:
+        raise TimeoutError(
+            f"{label} timed out after {timeout:g}s — no response from device")
+    finally:
+        timer.cancel()
 
 
-def unlock_if_needed(jade, info):
-    state = info.get('JADE_STATE', '?')
-    print(f"Jade version: {info.get('JADE_VERSION', '?')} (state={state})", flush=True)
+def get_version_info(jade, timeout):
+    """Get version info with a hard timeout."""
+    print("Querying device info...", flush=True)
+    return rpc_with_timeout(
+        lambda: jade.get_version_info(nonblocking=True),
+        timeout=timeout,
+        label="get_version_info")
 
-    if state == 'READY':
-        print("Device is already unlocked.", flush=True)
-        return
 
-    if not info.get('JADE_HAS_PIN', False):
-        print("Device has no PIN set; continuing without auth.", flush=True)
-        return
+def unlock_jade(jade, timeout):
+    """Authenticate with the Jade device (PIN entry + pinserver).
 
-    print("Requesting unlock on Jade now...", flush=True)
-    while True:
-        try:
-            if jade.auth_user('litecoin', http_request_fn=pinserver_http_request) is True:
-                break
-            print("Incorrect PIN entered. Try again on the Jade device.", flush=True)
-        except JadeError as exc:
-            if exc.code == JadeError.USER_CANCELLED:
-                raise SystemExit("Unlock cancelled on Jade.")
-            print(f"Unlock failed: {exc}", flush=True)
-            raise
-    print("Unlocked!", flush=True)
+    The user must enter their PIN on the Jade screen.  The pinserver
+    handshake is handled automatically via HTTP.
+    """
+    print("Authenticating — please enter your PIN on the Jade device...", flush=True)
+    try:
+        result = rpc_with_timeout(
+            lambda: jade.auth_user('litecoin', http_request_fn=pinserver_http_request),
+            timeout=timeout,
+            label="auth_user")
+    except JadeError as exc:
+        if exc.code == JadeError.USER_CANCELLED:
+            raise SystemExit("Unlock cancelled on Jade.")
+        raise
+    if result is True:
+        print("Unlocked!", flush=True)
+        return True
+    print(f"Auth result: {result}", flush=True)
+    return False
 
 
 def pinserver_http_request(params):
@@ -730,26 +837,34 @@ def test_mweb_psbt(jade, mweb_ctx):
 #  Main
 # ---------------------------------------------------------------------------
 
-def main():
-    args = parse_args()
-
+def _run_tests(jade, args, is_ble):
+    """Core test logic — runs on the main thread (serial) or worker thread (BLE)."""
     passed = 0
     failed = 0
-
-    jade = JadeAPI.create_serial(device=args.serialport, timeout=args.serial_timeout)
-    selected_port = jade.jade.impl.device
-    port_label = selected_port or 'auto-detected serial device'
-
-    print(f"Connecting to Jade on {port_label}...", flush=True)
-    print(
-        f"Using serial timeout {args.serial_timeout:g}s and boot timeout {args.boot_timeout:g}s.",
-        flush=True,
-    )
-    jade.connect()
+    auth_timeout = max(args.boot_timeout, 120)
 
     try:
-        info = wait_for_version_info(jade, args.boot_timeout, args.poll_interval)
-        unlock_if_needed(jade, info)
+        if is_ble:
+            if not unlock_jade(jade, auth_timeout):
+                return 1
+            try:
+                info = get_version_info(jade, timeout=10)
+                print(f"Jade version: {info.get('JADE_VERSION', '?')} "
+                      f"(state={info.get('JADE_STATE', '?')})", flush=True)
+            except (TimeoutError, Exception) as e:
+                print(f"Warning: could not get version info after auth: {e}", flush=True)
+        else:
+            info = get_version_info(jade, timeout=args.boot_timeout)
+            state = info.get('JADE_STATE', '?')
+            print(f"Jade version: {info.get('JADE_VERSION', '?')} (state={state})", flush=True)
+
+            if state == 'READY':
+                print("Device is already unlocked.", flush=True)
+            elif not info.get('JADE_HAS_PIN', False):
+                print("Device has no PIN set; continuing without auth.", flush=True)
+            else:
+                if not unlock_jade(jade, auth_timeout):
+                    return 1
 
         # Test 1
         try:
@@ -759,8 +874,7 @@ def main():
                 failed += 1
         except Exception as e:
             print(f"\n  *** Test 1 ERROR: {e} ***")
-            import traceback
-            traceback.print_exc()
+            import traceback; traceback.print_exc()
             failed += 1
 
         mweb_ctx = None
@@ -774,8 +888,7 @@ def main():
                 failed += 1
         except Exception as e:
             print(f"\n  *** Test 2 ERROR: {e} ***")
-            import traceback
-            traceback.print_exc()
+            import traceback; traceback.print_exc()
             failed += 1
 
         # Test 3
@@ -788,15 +901,220 @@ def main():
                 failed += 1
         except Exception as e:
             print(f"\n  *** Test 3 ERROR: {e} ***")
-            import traceback
-            traceback.print_exc()
+            import traceback; traceback.print_exc()
             failed += 1
     finally:
-        jade.disconnect()
+        try:
+            jade.disconnect()
+        except Exception:
+            pass
 
     print(f"\n{'='*50}")
     print(f"Results: {passed} passed, {failed} failed")
     return 0 if failed == 0 else 1
+
+
+class _DirectBleImpl:
+    """BLE impl that uses asyncio.run() + async-with BleakClient on the main
+    thread — the only pattern proven to work reliably on macOS CoreBluetooth.
+
+    The main thread runs the async event loop.  A worker thread drives jadepy's
+    synchronous read()/write() calls, which post BLE operations back to the
+    main loop via run_coroutine_threadsafe().
+    """
+    IO_TX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
+    IO_RX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
+
+    def __init__(self, client, loop, inbufs):
+        self._client = client
+        self._loop = loop
+        self._inbufs = inbufs          # deque, fed by notification callback
+        self._read_buf = bytearray()   # leftover bytes from previous reads
+
+    def connect(self):
+        pass  # already connected
+
+    def disconnect(self):
+        pass  # handled by the async-with context
+
+    def write(self, bytes_):
+        import asyncio
+        import time
+        # Brief pause to let CoreBluetooth finish processing any pending
+        # indication acknowledgments — the ATT bearer is sequential, so
+        # writing before the previous indication is confirmed causes the
+        # Jade firmware to get BLE_HS_EBUSY (error 6).
+        time.sleep(0.05)
+        logger.debug(f'BLE write: {len(bytes_)} bytes')
+        future = asyncio.run_coroutine_threadsafe(
+            self._client.write_gatt_char(
+                self.IO_TX_CHAR_UUID, bytearray(bytes_), response=True),
+            self._loop)
+        future.result()
+        logger.debug(f'BLE write: done')
+        return len(bytes_)
+
+    def read(self, n):
+        """Read up to n bytes from the BLE notification stream.
+
+        Returns as soon as ANY data is available (like a socket read),
+        since cbor2.load() calls read(4096) expecting partial returns.
+        """
+        if not self._read_buf:
+            # Wait for at least one chunk of data
+            while not self._inbufs:
+                import time
+                time.sleep(0.005)
+            chunk = self._inbufs.popleft()
+            self._read_buf.extend(chunk)
+
+        # Return whatever we have, up to n bytes
+        available = min(n, len(self._read_buf))
+        result = bytes(self._read_buf[:available])
+        self._read_buf = self._read_buf[available:]
+        return result
+
+
+def _run_ble_main(args):
+    """BLE entry point — runs asyncio.run() on the main thread.
+
+    Uses `async with BleakClient` (the only pattern that reliably receives
+    BLE notifications on macOS with bonded devices).  All synchronous jadepy
+    API calls run in a worker thread.
+    """
+    import asyncio
+    import collections
+    import queue
+
+    result_q = queue.Queue()
+
+    async def _async_main():
+        import bleak
+
+        # --- Scan ---
+        bleid = args.bleid
+        if bleid is None:
+            print(f"Scanning for Jade BLE devices ({args.ble_scan_timeout}s)...",
+                  flush=True)
+            all_devs = await bleak.BleakScanner.discover(
+                timeout=args.ble_scan_timeout)
+            devices = [(d.name, d.address) for d in all_devs
+                       if d.name and d.name.startswith('Jade')]
+
+            if not devices:
+                print("\nNo Jade BLE devices found. Ensure your Jade is:",
+                      flush=True)
+                print("  - Powered on and past the boot screen", flush=True)
+                print("  - Bluetooth enabled (check Jade settings)", flush=True)
+                print("  - Not already connected to another host", flush=True)
+                result_q.put(1)
+                return
+
+            print(f"\nFound {len(devices)} Jade device(s):\n", flush=True)
+            for i, (name, addr) in enumerate(devices, 1):
+                print(f"  [{i}] {name}  ({addr})", flush=True)
+
+            if len(devices) == 1:
+                name, addr = devices[0]
+                print(f"\nAuto-selecting: {name}\n", flush=True)
+                parts = name.split()
+                bleid = parts[-1] if len(parts) > 1 else None
+            else:
+                # Device selection needs to happen in the worker thread
+                # (input() can't run on the event loop).  For now, require
+                # --bleid when multiple devices are present.
+                print("Multiple devices found — please re-run with --bleid <suffix>",
+                      flush=True)
+                result_q.put(1)
+                return
+
+        # --- Scan for the device address ---
+        jade_addr = None
+        devs = await bleak.BleakScanner.discover(timeout=5)
+        for d in devs:
+            if d.name and d.name.startswith('Jade'):
+                if bleid is None or d.name.endswith(bleid):
+                    jade_addr = d.address
+                    print(f"Found: {d.name}  ({d.address})", flush=True)
+                    break
+
+        if not jade_addr:
+            print(f"Could not find Jade device (bleid={bleid})", flush=True)
+            result_q.put(1)
+            return
+
+        # --- Connect with async-with (proven to work on macOS) ---
+        inbufs = collections.deque()
+
+        def on_notify(characteristic, data):
+            logger.debug(f'BLE notification: {len(data)} bytes')
+            inbufs.append(data)
+
+        print(f"Connecting to Jade over BLE (id={bleid or 'any'})...", flush=True)
+
+        async with bleak.BleakClient(jade_addr) as client:
+            await client.start_notify(_DirectBleImpl.IO_RX_CHAR_UUID, on_notify)
+            print("Connected and subscribed.", flush=True)
+
+            loop = asyncio.get_running_loop()
+            impl = _DirectBleImpl(client, loop, inbufs)
+
+            # Build JadeAPI using our direct BLE impl
+            from jadepy.jade import JadeInterface
+            jade_iface = JadeInterface(impl)
+            jade = JadeAPI(jade_iface)
+
+            # Run the synchronous test logic in a worker thread
+            def _worker():
+                try:
+                    r = _run_tests(jade, args, is_ble=True)
+                    result_q.put(r)
+                except SystemExit as e:
+                    result_q.put(e.code if isinstance(e.code, int) else 1)
+                except Exception as e:
+                    print(f"\nFatal error: {e}", flush=True)
+                    import traceback; traceback.print_exc()
+                    result_q.put(1)
+
+            worker = threading.Thread(target=_worker, name='ble-test-worker')
+            worker.start()
+
+            # Keep the async context alive while the worker runs
+            while worker.is_alive():
+                await asyncio.sleep(0.05)
+
+            worker.join(timeout=5)
+
+        print("BLE disconnected.", flush=True)
+
+    asyncio.run(_async_main())
+    return result_q.get() if not result_q.empty() else 1
+
+
+def main():
+    args = parse_args()
+
+    # --ble-scan: just list devices and exit
+    if args.ble_scan:
+        devices = scan_for_jade_devices(args.ble_scan_timeout)
+        if not devices:
+            print("No Jade BLE devices found.")
+        return 0
+
+    if args.ble:
+        return _run_ble_main(args)
+
+    # Serial path — runs directly on the main thread
+    jade = JadeAPI.create_serial(device=args.serialport, timeout=args.serial_timeout)
+    selected_port = jade.jade.impl.device
+    port_label = selected_port or 'auto-detected serial device'
+
+    print(f"Connecting to Jade on {port_label}...", flush=True)
+    print(f"Using boot timeout {args.boot_timeout:g}s.", flush=True)
+    jade.connect()
+    print("Connected.", flush=True)
+
+    return _run_tests(jade, args, is_ble=False)
 
 
 if __name__ == '__main__':
