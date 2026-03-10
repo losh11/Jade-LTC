@@ -1501,7 +1501,9 @@ int sign_psbt(jade_process_t* process, CborValue* params, const network_t networ
                 // tx_offset -= result.input_blind
                 uint8_t neg_blind[32];
                 memcpy(neg_blind, result.input_blind, 32);
-                secp256k1_ec_seckey_negate(secp_ctx, neg_blind);
+                if (!secp256k1_ec_seckey_negate(secp_ctx, neg_blind)) {
+                    memset(neg_blind, 0, 32);
+                }
                 if (memcmp(tx_offset, zero32, 32) == 0) {
                     memcpy(tx_offset, neg_blind, 32);
                 } else if (!secp256k1_ec_seckey_tweak_add(secp_ctx, tx_offset, neg_blind)) {

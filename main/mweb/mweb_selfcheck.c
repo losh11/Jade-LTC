@@ -388,3 +388,5 @@ bool test_mweb_crypto(void)
     if (!test_mweb_sign_properties()) { return false; }
     return true;
 }
+
+#undef FAIL
