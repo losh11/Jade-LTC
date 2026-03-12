@@ -230,6 +230,30 @@ static bool test_mweb_blind_vectors(void)
     return true;
 }
 
+/* ── Spend pubkey derivation ────────────────────────────────────────── */
+
+static bool test_mweb_spend_pubkey(void)
+{
+    /* Expected spend pubkey from mweb_import_test.go */
+    static const uint8_t EXPECTED_SPEND_PUBKEY[33] = {
+        0x03,0xe3,0x90,0x8a,0xf7,0x00,0x85,0xb4,
+        0x58,0x02,0x0e,0x64,0xaa,0xa5,0xc9,0xa4,
+        0xb8,0xff,0x38,0x2d,0x42,0xaf,0x08,0x75,
+        0xc8,0x14,0x5d,0xb6,0xa3,0x0d,0xb9,0xca,
+        0xd2,
+    };
+
+    uint8_t pubkey[33];
+    if (!mweb_derive_spend_pubkey(MWEB_TEST_SPEND_KEY, pubkey)) { FAIL(); }
+    if (memcmp(pubkey, EXPECTED_SPEND_PUBKEY, 33) != 0) { FAIL(); }
+
+    /* Zero key must be rejected */
+    static const uint8_t ZERO[32] = {0};
+    if (mweb_derive_spend_pubkey(ZERO, pubkey)) { FAIL(); }
+
+    return true;
+}
+
 /* ── Stealth address derivation ──────────────────────────────────────── */
 
 static bool test_mweb_addresses(void)
@@ -384,6 +408,7 @@ bool test_mweb_crypto(void)
     if (!test_mweb_hashes()) { return false; }
     if (!test_mweb_schnorr_vectors()) { return false; }
     if (!test_mweb_blind_vectors()) { return false; }
+    if (!test_mweb_spend_pubkey()) { return false; }
     if (!test_mweb_addresses()) { return false; }
     if (!test_mweb_sign_properties()) { return false; }
     return true;

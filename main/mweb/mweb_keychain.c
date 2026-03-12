@@ -141,6 +141,13 @@ bool mweb_derive_standard_keys(uint8_t scan_key[32], uint8_t spend_key[32])
         && mweb_derive_key_from_path(spend_path, MWEB_PATH_LEN, spend_key);
 }
 
+bool mweb_derive_spend_pubkey(const uint8_t spend_key[32],
+                               uint8_t spend_pubkey_out[33])
+{
+    return wally_ec_public_key_from_private_key(
+               spend_key, 32, spend_pubkey_out, EC_PUBLIC_KEY_LEN) == WALLY_OK;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Network HRP                                                        */
 /* ------------------------------------------------------------------ */
@@ -202,8 +209,7 @@ bool mweb_derive_address(const uint8_t scan_key[32],
      * m_i_pub = m_i * G
      */
     uint8_t spend_pub[EC_PUBLIC_KEY_LEN];
-    if (wally_ec_public_key_from_private_key(spend_key, 32,
-            spend_pub, sizeof(spend_pub)) != WALLY_OK) {
+    if (!mweb_derive_spend_pubkey(spend_key, spend_pub)) {
         goto cleanup;
     }
 

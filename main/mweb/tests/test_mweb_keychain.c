@@ -49,7 +49,44 @@ static const struct {
           "qnjy0cyh9rp0mq46l2uzdwyyfp27e9jz203wzqwdvg826akasgqwvgs2kze" },
 };
 
+/* --- Expected spend pubkey (from mweb_import_test.go) --- */
+
+static const uint8_t EXPECTED_SPEND_PUBKEY[33] = {
+    0x03,0xe3,0x90,0x8a,0xf7,0x00,0x85,0xb4,
+    0x58,0x02,0x0e,0x64,0xaa,0xa5,0xc9,0xa4,
+    0xb8,0xff,0x38,0x2d,0x42,0xaf,0x08,0x75,
+    0xc8,0x14,0x5d,0xb6,0xa3,0x0d,0xb9,0xca,
+    0xd2,
+};
+
 /* --- Tests --- */
+
+static void test_spend_pubkey(void)
+{
+    uint8_t pubkey[33];
+
+    /* Known vector: spend_key → expected compressed pubkey */
+    if (!mweb_derive_spend_pubkey(SPEND_KEY, pubkey)) {
+        printf("FAIL: mweb_derive_spend_pubkey — derivation failed\n");
+        failures++;
+        return;
+    }
+    if (memcmp(pubkey, EXPECTED_SPEND_PUBKEY, 33) != 0) {
+        printf("FAIL: mweb_derive_spend_pubkey — wrong pubkey\n");
+        failures++;
+    } else {
+        printf("PASS: mweb_derive_spend_pubkey\n");
+    }
+
+    /* Zero key must be rejected */
+    static const uint8_t ZERO[32] = {0};
+    if (mweb_derive_spend_pubkey(ZERO, pubkey)) {
+        printf("FAIL: mweb_derive_spend_pubkey(zero) should fail\n");
+        failures++;
+    } else {
+        printf("PASS: mweb_derive_spend_pubkey(zero) rejected\n");
+    }
+}
 
 static void test_address(uint32_t index, const char* expected)
 {
@@ -302,11 +339,12 @@ int test_mweb_keychain(void)
     test_network_hrp();
     test_bip32_derivation();
     test_exported_helpers();
+    test_spend_pubkey();
 
     for (size_t i = 0; i < sizeof(EXPECTED_ADDRESSES) / sizeof(EXPECTED_ADDRESSES[0]); i++) {
         test_address(EXPECTED_ADDRESSES[i].index, EXPECTED_ADDRESSES[i].encoded);
     }
 
-    printf("\nmweb_keychain: %d tests, %d failures\n", 12, failures);
+    printf("\nmweb_keychain: %d tests, %d failures\n", 14, failures);
     return failures;
 }

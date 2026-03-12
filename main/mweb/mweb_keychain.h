@@ -37,6 +37,13 @@ bool mweb_derive_key_from_path(const uint32_t* path, size_t path_len,
 bool mweb_derive_standard_keys(uint8_t scan_key[32], uint8_t spend_key[32]);
 
 /*
+ * Compute the compressed secp256k1 public key from a 32-byte spend secret.
+ * Returns 33-byte compressed pubkey in spend_pubkey_out.
+ */
+bool mweb_derive_spend_pubkey(const uint8_t spend_key[32],
+                               uint8_t spend_pubkey_out[33]);
+
+/*
  * Derive MWEB stealth address at subaddress index.
  * Requires scan + spend SECRET keys (32 bytes each).
  *
