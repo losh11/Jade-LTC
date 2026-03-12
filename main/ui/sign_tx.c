@@ -801,6 +801,14 @@ bool show_mweb_scan_key_export_activity(const network_t network)
     return await_yesno_activity("MWEB Scan Key", question, 2, true, NULL);
 }
 
+bool show_mweb_watch_keys_export_activity(const network_t network)
+{
+    JADE_ASSERT(network_is_litecoin(network));
+
+    const char* question[] = { "Export MWEB watch-only", "keys? This reveals all", "MWEB balances/addresses." };
+    return await_yesno_activity("MWEB Watch Keys", question, 3, false, NULL);
+}
+
 bool show_mweb_address_activity(const char* address, const network_t network)
 {
     JADE_ASSERT(address);

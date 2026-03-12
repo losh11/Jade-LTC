@@ -26,6 +26,7 @@ bool show_elements_swap_activity(network_t network_id, bool initial_proposal, co
 
 // MWEB UI screens
 bool show_mweb_scan_key_export_activity(network_t network);
+bool show_mweb_watch_keys_export_activity(network_t network);
 bool show_mweb_address_activity(const char* address, network_t network);
 bool show_mweb_output_activity(const char* title, const char* address, const char* amount, network_t network);
 

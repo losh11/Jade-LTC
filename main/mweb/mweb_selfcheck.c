@@ -401,6 +401,89 @@ static bool test_mweb_sign_properties(void)
     return true;
 }
 
+/* ── Watch-only address consistency ──────────────────────────────────── */
+/*
+ * Proves that a watch-only wallet with (scan_secret, spend_pubkey) generates
+ * the same stealth addresses as full-access derivation with (scan_secret,
+ * spend_secret).  This is the core invariant behind get_mweb_watch_keys.
+ */
+static bool test_mweb_watch_only_consistency(void)
+{
+    const secp256k1_context* ctx = wally_get_secp_context();
+    if (!ctx) { FAIL(); }
+
+    /* Get spend pubkey via the helper (no spend secret after this) */
+    uint8_t spend_pubkey[EC_PUBLIC_KEY_LEN];
+    if (!mweb_derive_spend_pubkey(MWEB_TEST_SPEND_KEY, spend_pubkey)) { FAIL(); }
+
+    /* Full-access address at index 0 */
+    char* addr_full = NULL;
+    if (!mweb_derive_address(MWEB_TEST_SCAN_KEY, MWEB_TEST_SPEND_KEY,
+                             0, NETWORK_LITECOIN, &addr_full)) { FAIL(); }
+
+    /* Watch-only derivation using spend_pubkey only (no spend_secret) */
+    /* m_i = BLAKE3('A', index_le32 || scan_key) */
+    uint8_t mi_buf[36] = {0}; /* index=0 little-endian */
+    memcpy(mi_buf + 4, MWEB_TEST_SCAN_KEY, 32);
+    uint8_t m_i[32];
+    mweb_hashed(MWEB_TAG_ADDRESS, mi_buf, sizeof(mi_buf), m_i);
+
+    /* m_i_pub = m_i * G */
+    uint8_t mi_pub[EC_PUBLIC_KEY_LEN];
+    if (wally_ec_public_key_from_private_key(m_i, 32,
+            mi_pub, sizeof(mi_pub)) != WALLY_OK) {
+        wally_free_string(addr_full);
+        FAIL();
+    }
+
+    /* B_i = spend_pubkey + m_i*G */
+    secp256k1_pubkey sp_pk, mi_pk, Bi_pk;
+    if (!secp256k1_ec_pubkey_parse(ctx, &sp_pk, spend_pubkey, 33)
+        || !secp256k1_ec_pubkey_parse(ctx, &mi_pk, mi_pub, 33)) {
+        wally_free_string(addr_full);
+        FAIL();
+    }
+    const secp256k1_pubkey* pts[2] = { &sp_pk, &mi_pk };
+    if (!secp256k1_ec_pubkey_combine(ctx, &Bi_pk, pts, 2)) {
+        wally_free_string(addr_full);
+        FAIL();
+    }
+
+    uint8_t Bi[EC_PUBLIC_KEY_LEN];
+    size_t bi_len = sizeof(Bi);
+    secp256k1_ec_pubkey_serialize(ctx, Bi, &bi_len, &Bi_pk, SECP256K1_EC_COMPRESSED);
+
+    /* A_i = scan_key * B_i */
+    secp256k1_pubkey Ai_pk = Bi_pk;
+    if (!secp256k1_ec_pubkey_tweak_mul(ctx, &Ai_pk, MWEB_TEST_SCAN_KEY)) {
+        wally_free_string(addr_full);
+        FAIL();
+    }
+
+    uint8_t Ai[EC_PUBLIC_KEY_LEN];
+    size_t ai_len = sizeof(Ai);
+    secp256k1_ec_pubkey_serialize(ctx, Ai, &ai_len, &Ai_pk, SECP256K1_EC_COMPRESSED);
+
+    /* Encode as bech32 and compare */
+    uint8_t payload[66];
+    memcpy(payload, Ai, 33);
+    memcpy(payload + 33, Bi, 33);
+
+    char watch_addr[128];
+    if (!mweb_bech32_encode_payload(payload, 66, "ltcmweb", watch_addr, sizeof(watch_addr))) {
+        wally_free_string(addr_full);
+        FAIL();
+    }
+
+    if (strcmp(addr_full, watch_addr) != 0) {
+        wally_free_string(addr_full);
+        FAIL();
+    }
+
+    wally_free_string(addr_full);
+    return true;
+}
+
 /* ── Top-level entry point for selfcheck.c ───────────────────────────── */
 
 bool test_mweb_crypto(void)
@@ -410,6 +493,7 @@ bool test_mweb_crypto(void)
     if (!test_mweb_blind_vectors()) { return false; }
     if (!test_mweb_spend_pubkey()) { return false; }
     if (!test_mweb_addresses()) { return false; }
+    if (!test_mweb_watch_only_consistency()) { return false; }
     if (!test_mweb_sign_properties()) { return false; }
     return true;
 }
