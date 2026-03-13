@@ -2206,6 +2206,65 @@ static void handle_mweb_scan_key_export(void)
     SENSITIVE_POP(scan_key);
 }
 
+static void handle_mweb_fingerprint(void)
+{
+    uint8_t fingerprint[4];
+    wallet_get_fingerprint(fingerprint, sizeof(fingerprint));
+
+    char* hexptr = NULL;
+    if (wally_hex_from_bytes(fingerprint, sizeof(fingerprint), &hexptr) != WALLY_OK || !hexptr) {
+        const char* errmsg[] = { "Failed to get", "fingerprint" };
+        await_error_activity(errmsg, 2);
+        return;
+    }
+
+    const bool show_help_btn = false;
+    gui_activity_t* const act = make_show_single_value_activity("Master Fingerprint", hexptr, show_help_btn);
+    gui_set_current_activity(act);
+    int32_t ev_id;
+    gui_activity_wait_event(act, GUI_BUTTON_EVENT, ESP_EVENT_ANY_ID, NULL, &ev_id, NULL, 0);
+    wally_free_string(hexptr);
+}
+
+static void handle_mweb_spend_pubkey_export(void)
+{
+    /* Derive spend key, compute pubkey, clear secret */
+    uint8_t spend_key[32];
+    SENSITIVE_PUSH(spend_key, sizeof(spend_key));
+
+    const uint32_t spend_path[] = MWEB_SPEND_PATH;
+    if (!mweb_derive_key_from_path(spend_path, MWEB_PATH_LEN, spend_key)) {
+        SENSITIVE_POP(spend_key);
+        const char* errmsg[] = { "Failed to derive", "MWEB spend key" };
+        await_error_activity(errmsg, 2);
+        return;
+    }
+
+    uint8_t spend_pubkey[33];
+    if (!mweb_derive_spend_pubkey(spend_key, spend_pubkey)) {
+        SENSITIVE_POP(spend_key);
+        const char* errmsg[] = { "Failed to derive", "spend pubkey" };
+        await_error_activity(errmsg, 2);
+        return;
+    }
+    SENSITIVE_POP(spend_key);
+
+    /* spend_pubkey is public info — display as QR */
+    const char* qr_label[] = { "MWEB Spend Pubkey" };
+    await_single_qr_activity(qr_label, 1, spend_pubkey, sizeof(spend_pubkey));
+
+    /* Show hex for manual verification */
+    char* hexptr = NULL;
+    if (wally_hex_from_bytes(spend_pubkey, sizeof(spend_pubkey), &hexptr) == WALLY_OK && hexptr) {
+        const bool show_help_btn = false;
+        gui_activity_t* const act = make_show_single_value_activity("Spend Pubkey (hex)", hexptr, show_help_btn);
+        gui_set_current_activity(act);
+        int32_t ev_id;
+        gui_activity_wait_event(act, GUI_BUTTON_EVENT, ESP_EVENT_ANY_ID, NULL, &ev_id, NULL, 0);
+        wally_free_string(hexptr);
+    }
+}
+
 static void handle_settings(const bool startup_menu)
 {
     // Create the appropriate 'Settings' menu
@@ -2413,6 +2472,14 @@ static void handle_settings(const bool startup_menu)
 
         case BTN_SETTINGS_MWEB_SCAN_KEY:
             handle_mweb_scan_key_export();
+            break;
+
+        case BTN_SETTINGS_MWEB_SPEND_PUBKEY:
+            handle_mweb_spend_pubkey_export();
+            break;
+
+        case BTN_SETTINGS_MWEB_FINGERPRINT:
+            handle_mweb_fingerprint();
             break;
 
         case BTN_SETTINGS_QR_PINSERVER:

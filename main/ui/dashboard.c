@@ -340,9 +340,11 @@ gui_activity_t* make_mweb_settings_activity(void)
     btn_data_t menubtns[] = {
         { .txt = "View Address", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_MWEB_ADDRESS },
         { .txt = "Export Scan Key", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_MWEB_SCAN_KEY },
+        { .txt = "Export Spend Pubkey", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_MWEB_SPEND_PUBKEY },
+        { .txt = "Master Fingerprint", .font = GUI_DEFAULT_FONT, .ev_id = BTN_SETTINGS_MWEB_FINGERPRINT },
     };
 
-    return make_menu_activity("MWEB", hdrbtns, 2, menubtns, 2);
+    return make_menu_activity("MWEB", hdrbtns, 2, menubtns, 4);
 }
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3) && defined(CONFIG_HAS_BATTERY)

@@ -2052,6 +2052,24 @@ class JadeAPI:
         params = {'network': network}
         return self._jadeRpc('get_mweb_scan_key', params, long_timeout=True)
 
+    def get_mweb_watch_keys(self, network):
+        """
+        RPC call to export MWEB watch-only wallet keys (requires user confirmation on device).
+        Uses standard derivation m/0'/100'/0' (scan) and m/0'/100'/1' (spend).
+
+        Parameters
+        ----------
+        network : str
+            Network - 'litecoin', 'testnet-litecoin', or 'localtest-litecoin'
+
+        Returns
+        -------
+        dict
+            {scan_secret: bytes(32), spend_pubkey: bytes(33), fingerprint: bytes(4)}
+        """
+        params = {'network': network}
+        return self._jadeRpc('get_mweb_watch_keys', params, long_timeout=True)
+
     def get_mweb_address(self, network, index):
         """
         RPC call to derive and display an MWEB stealth address on the device.
