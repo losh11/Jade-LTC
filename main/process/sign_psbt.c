@@ -535,6 +535,14 @@ static bool psbt_update_outputs(const network_t network_id, struct wally_psbt* p
         size_t written = 0;
         output_info_t* const outinfo = output_info + index;
 
+#ifdef BUILD_MWEB
+        // MWEB outputs are displayed separately — skip regular output validation
+        if (MWEB_OUT_IS_MWEB(psbt->outputs[index].mweb_output_keyset)) {
+            outinfo->flags |= OUTPUT_FLAG_MWEB;
+            continue;
+        }
+#endif
+
         // If liquid, look for blinding data and explicit fees (scriptless outputs)
         if (is_liquid) {
             if ((wally_psbt_get_output_asset_commitment_len(psbt, index, &written) == WALLY_OK && written)
@@ -907,8 +915,14 @@ int sign_psbt(jade_process_t* process, CborValue* params, const network_t networ
             }
             uint8_t wallet_fp[BIP32_KEY_FINGERPRINT_LEN];
             wallet_get_fingerprint(wallet_fp, sizeof(wallet_fp));
-            if (memcmp(scan_fp, wallet_fp, BIP32_KEY_FINGERPRINT_LEN) != 0
-                || memcmp(spend_fp, wallet_fp, BIP32_KEY_FINGERPRINT_LEN) != 0) {
+            // Reverse to LE
+            uint8_t wallet_fp_le[BIP32_KEY_FINGERPRINT_LEN];
+            wallet_fp_le[0] = wallet_fp[3];
+            wallet_fp_le[1] = wallet_fp[2];
+            wallet_fp_le[2] = wallet_fp[1];
+            wallet_fp_le[3] = wallet_fp[0];
+            if (memcmp(scan_fp, wallet_fp_le, BIP32_KEY_FINGERPRINT_LEN) != 0
+                || memcmp(spend_fp, wallet_fp_le, BIP32_KEY_FINGERPRINT_LEN) != 0) {
                 continue; // Not our input — amount already counted above
             }
 
@@ -1363,6 +1377,12 @@ int sign_psbt(jade_process_t* process, CborValue* params, const network_t networ
 
         uint8_t wallet_fp[BIP32_KEY_FINGERPRINT_LEN];
         wallet_get_fingerprint(wallet_fp, sizeof(wallet_fp));
+        // Reverse to LE
+        uint8_t wallet_fp_le[BIP32_KEY_FINGERPRINT_LEN];
+        wallet_fp_le[0] = wallet_fp[3];
+        wallet_fp_le[1] = wallet_fp[2];
+        wallet_fp_le[2] = wallet_fp[1];
+        wallet_fp_le[3] = wallet_fp[0];
 
         for (size_t index = 0; index < psbt->num_inputs; ++index) {
             struct wally_psbt_input* input = &psbt->inputs[index];
@@ -1384,8 +1404,8 @@ int sign_psbt(jade_process_t* process, CborValue* params, const network_t networ
                     &input->mweb_spend_key_origin, 0, spend_fp, sizeof(spend_fp)) != WALLY_OK) {
                 continue;
             }
-            if (memcmp(scan_fp, wallet_fp, BIP32_KEY_FINGERPRINT_LEN) != 0
-                || memcmp(spend_fp, wallet_fp, BIP32_KEY_FINGERPRINT_LEN) != 0) {
+            if (memcmp(scan_fp, wallet_fp_le, BIP32_KEY_FINGERPRINT_LEN) != 0
+                || memcmp(spend_fp, wallet_fp_le, BIP32_KEY_FINGERPRINT_LEN) != 0) {
                 continue; // Not our input
             }
 

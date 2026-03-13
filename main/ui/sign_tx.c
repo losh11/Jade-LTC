@@ -49,6 +49,11 @@ static bool display_output(
     }
 
     if (output_info) {
+        if (output_info[i].flags & OUTPUT_FLAG_MWEB) {
+            // MWEB outputs are displayed separately via show_mweb_output_activity()
+            return false;
+        }
+
         if (output_info[i].message[0] != '\0') {
             // Show outputs that have an associated warning message
             return true;

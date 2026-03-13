@@ -82,6 +82,7 @@ typedef enum { QR_GUIDE_HIDE, QR_GUIDE_SHOW } qr_guide_type_t;
 #define OUTPUT_FLAG_VALIDATED 4
 #define OUTPUT_FLAG_CHANGE 8
 #define OUTPUT_FLAG_HAS_UNBLINDED 16
+#define OUTPUT_FLAG_MWEB 32
 
 // Progress bar
 typedef struct {
